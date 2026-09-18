@@ -1,0 +1,20 @@
+[project]
+name = "sanad"
+version = "0.1.0"
+description = "Sanad: multi-agent HR/legal assistant built around the existing hr_assistant Saudi Labor Law RAG"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.6", "pymupdf>=1.23.8", "python-docx>=1.1"]
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+api = ["fastapi>=0.115", "uvicorn>=0.30", "python-multipart>=0.0.9", "httpx>=0.27"]
+ui = ["streamlit>=1.36", "httpx>=0.27"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra -p no:cacheprovider"
+markers = [
+    "live: needs the real running Qdrant server (collection saudi_labor_law), the e5 embedding model and the legacy RAG dependencies",
+    "live_llm: additionally needs OPENAI_API_KEY and network access to OpenAI",
+]

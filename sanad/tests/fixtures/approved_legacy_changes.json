@@ -1,0 +1,14 @@
+{
+  "description": "Changes to the existing RAG explicitly approved by the project owner. Every other protected file must still match legacy_rag_baseline.json.",
+  "changes": {
+    "hr_assistant/hybird_search.py": {
+      "approved": "2026-09-17, before Phase 3",
+      "reason": "Off-by-one: Qdrant payload 'index' is 1-based (labor_law_parsed.json) but was used directly as a 0-based position in dense_scores, crediting each semantic hit to the next article and dropping hits on the last article. The fix matches the form evaluated in search_evaluation.ipynb (index - 1).",
+      "line_number": 76,
+      "original_line": "            idx = r.node.metadata.get(\"index\", None)",
+      "fixed_line": "            idx = (r.node.metadata.get(\"index\") or 0) - 1  # stored \"index\" is 1-based; dense_scores is 0-based",
+      "sha256_before": "aae0514b6c862219d0a8af23bad5788ea8e51296aeedba7ca8dc8edb035cf062",
+      "sha256_after": "ff78a700aa42b1e9bb49bf23ecf1c4a6f7dd0db927cb5efc2627bc77316d7110"
+    }
+  }
+}

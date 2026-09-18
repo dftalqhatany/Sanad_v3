@@ -1,0 +1,60 @@
+{
+  "description": "Baseline of the existing hr_assistant RAG, recorded at the start of Sanad Phase 2 BEFORE any Sanad code was written. Used by tests/integrity to prove the legacy RAG was not modified.",
+  "recorded_at_utc": "2026-09-17T10:49:49+00:00",
+  "git_head": "db03eec817035b52dd6d65b4b5fb11b8e9a5ea17",
+  "pre_existing_git_changes_in_hr_assistant": [
+    " M hr_assistant/qdrant_storage/collections/labor_law_ar/0/segments/21dc32d8-1552-4acd-bd7f-33b7c038e67f/segment.json",
+    " M hr_assistant/qdrant_storage/collections/labor_law_ar/0/segments/25e7e4c6-bb58-474f-bce5-2a312e4c9008/segment.json",
+    " M hr_assistant/qdrant_storage/collections/labor_law_ar/0/segments/450dd162-d1c5-405c-8684-ff224946288a/segment.json",
+    " M hr_assistant/qdrant_storage/collections/labor_law_ar/0/segments/487d57d9-7288-4f14-b892-93096dc25b74/segment.json",
+    " M hr_assistant/qdrant_storage/collections/labor_law_ar/0/segments/b3cfe84b-1513-4a59-85f3-10c12ce675c2/segment.json",
+    " M hr_assistant/qdrant_storage/collections/labor_law_ar/0/segments/c33713c3-df83-4ecb-a4f0-032c14a3b2e0/segment.json",
+    " M hr_assistant/qdrant_storage/collections/labor_law_ar/0/segments/fae20adc-5bce-4140-aa9b-9f653989a9e6/segment.json",
+    " M hr_assistant/qdrant_storage/collections/labor_law_ar/0/segments/fc58753c-68e3-4047-87b6-77c43c221438/segment.json",
+    " M hr_assistant/qdrant_storage/collections/saudi_labor_law/0/segments/161a3e6c-37ca-489e-a73e-9f4f24872e26/segment.json",
+    " M hr_assistant/qdrant_storage/collections/saudi_labor_law/0/segments/1a728880-af3f-4aa5-89d2-4edf530950b8/segment.json",
+    " M hr_assistant/qdrant_storage/collections/saudi_labor_law/0/segments/c5533dc9-b88c-4036-b19c-732f3b230555/segment.json",
+    " M hr_assistant/qdrant_storage/collections/saudi_labor_law/0/segments/da1af34d-88e4-4cd5-a1e4-d0dc5e0b8867/segment.json"
+  ],
+  "protected_files_sha256": {
+    "hr_assistant/README.md": "7c9a40c6933c6d72ab3a502720efd9b7913dfd5142756100be0d74e380f2151b",
+    "hr_assistant/app.py": "bfa7c830581597575f95639b073db067862b079d742b9e9b2fc94a27827eb78d",
+    "hr_assistant/assets/screenshots/1.png": "21c80b2fa7d6be33b4c50cb555175c4c0f95073b4f8fa1461bd675b4b21d9438",
+    "hr_assistant/assets/screenshots/10.png": "4a7a5ef1d3422986246af042db83d1a6077a12fdd7d8d9401eb41426b3c2208f",
+    "hr_assistant/assets/screenshots/2.png": "aa537442b7f4c555695a5ef9a39621d9f7c954efe602f415fdec025663ddb63a",
+    "hr_assistant/assets/screenshots/3.png": "6255da83f08128310f1b274afa089d0b17d389a8b78f7abfede14114d9d8bcc1",
+    "hr_assistant/assets/screenshots/4.png": "7c47d0ac2ec3877a7d5bbda0230bca7f9477c820ce08c555bacb76e6ce9f126d",
+    "hr_assistant/assets/screenshots/5.png": "d4baa47bbc9eda73da387c3d1c8609bc501c5989dc63a968c1b1646122f66366",
+    "hr_assistant/assets/screenshots/6.png": "bdd442ce9fab9ce1af7475633879d9e550b8ff1d6f91b9b7946f2708d963292b",
+    "hr_assistant/assets/screenshots/7.png": "1bc6382b642da5b2d719749db166c6ca4ce944a81b24bbe4c407d95347cd5ad1",
+    "hr_assistant/assets/screenshots/8.png": "e007c42a392064e5344224e567cd9a082fed86eb97745dcfe73a90717a80fd39",
+    "hr_assistant/assets/screenshots/9.png": "6c9fc6e5e87b7a0c8c446a7a9ff8872a120425da7fb13fc6af5db5811b655d6a",
+    "hr_assistant/chatbot_backend.py": "a2a2c4dcb78d36e4691e55ebb4119738fb2e05bbad061a1b04fda98462b37cc9",
+    "hr_assistant/data/ground-truth-data.csv": "a8757fd10cdd2b9f1a470874878f22cb6161b47a7c6b805330626bea20051dde",
+    "hr_assistant/data/labor_law/labor_law_ar.pdf": "cfb8e0e6bb0176ebe045e38aed072fc4f7ce5c2f72ee796f4de0beb216c4b5d6",
+    "hr_assistant/data/labor_law/labor_law_parsed.json": "972cd5781a973230ac9e83f4b281ecedb61bff4e64f43b8b6ee307b3630333c6",
+    "hr_assistant/data/results-gpt35.csv": "a96f6458b0d08c86dc17e80b77a6e62652f7658d7d265cb478cc2a589f5a0385",
+    "hr_assistant/data/results-gpt4o.csv": "4305b3251c21d1616160a2f6215952fb21d73b6ece9f61acfa8e83a70bba2107",
+    "hr_assistant/evaluation_data.ipynb": "4201bde14b68570c43c58ee26959e2730e6e16a7767ba9335d67bd5105ceedc8",
+    "hr_assistant/hybird_search.py": "aae0514b6c862219d0a8af23bad5788ea8e51296aeedba7ca8dc8edb035cf062",
+    "hr_assistant/process_data_vectors.ipynb": "22b6aca23af915e7d9936a4e3ad8203065d56def5cd4b8d79f00a0718f4e23f1",
+    "hr_assistant/process_labor_pdf.ipynb": "fb4621ac4041a30e165dce93ce4080a254aea9958db3191a4d66bde385421ba3",
+    "hr_assistant/query_data_vector.ipynb": "3c72a32d1a938fc24c6cbc6c2fde9ddf335d01fee5efcd3ca63bd80df3ed2df9",
+    "hr_assistant/rag_evaluation.ipynb": "fc7bc8fecbf4b5c20a16c39caf40681cb00b99bf7db8d685669beb8f50ff70df",
+    "hr_assistant/requirements.txt": "fe24b5e75bbcfd8632116f88047c78eda5e6f6f8938df6eecce7c79c7ac58c06",
+    "hr_assistant/search_evaluation.ipynb": "e807f0044b840d59184527b8ef451676a530b0ca0c0c2442cee1b6d1cfa0f558"
+  },
+  "qdrant_collection_configs_sha256": {
+    "hr_assistant/qdrant_storage/collections/labor_law_ar/config.json": "b814b67439e9249e06a7f29164950fd9f3b139df408045908c8eaea1ba70e7c2",
+    "hr_assistant/qdrant_storage/collections/saudi_labor_law/config.json": "b814b67439e9249e06a7f29164950fd9f3b139df408045908c8eaea1ba70e7c2"
+  },
+  "qdrant_collections_on_disk": [
+    "labor_law_ar",
+    "saudi_labor_law"
+  ],
+  "qdrant_storage_file_count_informational": 352,
+  "knowledge_base": {
+    "path": "hr_assistant/data/labor_law/labor_law_parsed.json",
+    "article_count": 249
+  }
+}

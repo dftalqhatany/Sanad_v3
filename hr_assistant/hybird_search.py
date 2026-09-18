@@ -73,7 +73,7 @@ class HybridRetriever:
         dense_scores = np.zeros(len(self.docs))
 
         for r in dense_results:
-            idx = r.node.metadata.get("index", None)
+            idx = (r.node.metadata.get("index") or 0) - 1  # stored "index" is 1-based; dense_scores is 0-based
             if idx is not None and 0 <= idx < len(self.docs):
                 dense_scores[idx] = r.score
 
