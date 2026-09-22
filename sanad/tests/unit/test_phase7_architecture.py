@@ -6,11 +6,13 @@ import ast
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-API_FILES = sorted((PROJECT_ROOT / "sanad" / "api").rglob("*.py"))
+API_FILES = sorted((PROJECT_ROOT / "api").rglob("*.py"))
 FRONTEND_FILES = sorted((PROJECT_ROOT / "frontend").rglob("*.py"))
+# The first-party packages, now that they live directly under the project root.
+PACKAGES = ("agents", "api", "config", "extraction", "models", "orchestrator", "parsers", "rag", "tools")
 
 # The API may use the Orchestrator, the shared models and the settings - nothing deeper.
-API_FORBIDDEN = ("sanad.agents", "sanad.rag", "sanad.parsers", "sanad.extraction", "chatbot_backend", "hybird_search",
+API_FORBIDDEN = ("agents", "rag", "parsers", "extraction",
                  "llama_index", "qdrant_client", "openai", "rank_bm25")
 API_FORBIDDEN_NAMES = ("AnalysisAgent", "ContractComparisonAgent", "ContractAnalysisAgent", "CvAnalysisAgent",
                        "RegulatoryRAGAdapter", "DocumentProcessor", "extract_contract", "extract_cv",
@@ -58,14 +60,14 @@ def test_the_only_sanad_call_the_api_makes_is_orchestrator_handle():
 
 
 def test_the_api_imports_the_orchestrator_and_the_shared_models_only():
-    modules = {module for path in API_FILES for module in _modules(path) if module.startswith("sanad.")}
-    assert modules <= {"sanad.orchestrator", "sanad.config", "sanad.models.analysis", "sanad.models.orchestration",
-                       "sanad.api.app", "sanad.api.schemas"}, modules
+    modules = {module for path in API_FILES for module in _modules(path) if module.split(".")[0] in PACKAGES}
+    assert modules <= {"orchestrator", "config", "models.analysis", "models.orchestration",
+                       "api.app", "api.schemas"}, modules
 
 
 def test_the_frontend_talks_to_the_api_and_imports_no_backend_code():
     offenders = [f"{path.name}: {module}" for path in FRONTEND_FILES for module in _modules(path)
-                 if module == "sanad" or module.startswith("sanad.")]
+                 if module.split(".")[0] in PACKAGES]
     assert len(FRONTEND_FILES) >= 3
     assert not offenders, offenders
     http_users = {path.name for path in FRONTEND_FILES for module in _modules(path) if module in ("httpx", "requests")}
@@ -81,7 +83,7 @@ def test_the_frontend_has_no_routing_or_analysis_logic():
 
 
 def test_the_api_is_runnable_as_a_module():
-    main = (PROJECT_ROOT / "sanad" / "api" / "__main__.py").read_text(encoding="utf-8")
+    main = (PROJECT_ROOT / "api" / "__main__.py").read_text(encoding="utf-8")
     assert "uvicorn.run" in main and "create_app()" in main
 
 

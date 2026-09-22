@@ -6,13 +6,13 @@ import ast
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-AGENTS = PROJECT_ROOT / "sanad" / "agents"
+AGENTS = PROJECT_ROOT / "agents"
 COMPARISON_FILES = [AGENTS / "comparison.py", AGENTS / "comparison_dimensions.py", AGENTS / "recommendation.py",
-                    PROJECT_ROOT / "sanad" / "models" / "comparison.py"]
+                    PROJECT_ROOT / "models" / "comparison.py"]
 # Everything below is the Analysis Agent's (or an earlier layer's) job; the comparison must not redo it.
-FORBIDDEN_MODULES = ("sanad.rag", "sanad.parsers", "sanad.extraction", "sanad.agents.contract_analysis",
-                     "sanad.agents.cv_analysis", "sanad.agents.regulatory", "openai", "qdrant_client", "llama_index",
-                     "hybird_search", "chatbot_backend")
+FORBIDDEN_MODULES = ("rag", "parsers", "extraction", "agents.contract_analysis",
+                     "agents.cv_analysis", "agents.regulatory", "openai", "qdrant_client", "llama_index",
+                     "rag.retriever", "rag.backend")
 FORBIDDEN_NAMES = ("retrieve_evidence", "RegulatoryEvidenceCollector", "ContractAnalysisAgent", "CvAnalysisAgent",
                    "extract_contract", "extract_cv", "DocumentProcessor", "complete_json", "LLMEvidenceInterpreter")
 

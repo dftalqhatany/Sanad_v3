@@ -6,15 +6,15 @@ import json
 
 import pytest
 
-from sanad.api.schemas import HTTP_STATUS
-from sanad.models.analysis import AnalysisStatus
-from sanad.models.orchestration import OrchestratorResult, SanadRequest
+from api.schemas import HTTP_STATUS
+from models.analysis import AnalysisStatus
+from models.orchestration import OrchestratorResult, SanadRequest
 from tests.api.conftest import DOCX_TYPE, StubOrchestrator, contract_bytes
 
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
-from sanad.api import create_app  # noqa: E402
+from api import create_app  # noqa: E402
 
 
 def files_for(*names: str, data: dict[str, bytes] | None = None) -> list:

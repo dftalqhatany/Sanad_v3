@@ -9,8 +9,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import httpx
 import pytest
 
-from sanad.config import SalarySettings
-from sanad.tools.web_search import HttpWebSearchClient, NullWebSearchClient, WebSearchError, domain_of, is_allowed
+from config import SalarySettings
+from tools.web_search import HttpWebSearchClient, NullWebSearchClient, WebSearchError, domain_of, is_allowed
 
 SEED = "https://saudisalary.com/data-analyst-salary"
 PAGE = "<html><body><p>Data Analyst salary 12,000 SAR per month.</p></body></html>"
@@ -161,7 +161,7 @@ def test_requests_are_spaced_out():
     seeds = ("https://saudisalary.com/a", "https://saudisalary.com/b")
     client = HttpWebSearchClient(settings(seed_urls=seeds, min_request_interval_s=0.5), http=transport(page_handler),
                                  clock=lambda: now[0])
-    import sanad.tools.web_search as module
+    import tools.web_search as module
 
     original, module.time.sleep = module.time.sleep, lambda seconds: slept.append(seconds)
     try:

@@ -7,12 +7,12 @@ import logging
 
 import pytest
 
-from sanad.agents import ContractAnalysisAgent, LLMEvidenceInterpreter, NoInterpreter
-from sanad.agents.regulatory import CONTRACT_TOPICS
-from sanad.extraction import extract_contract
-from sanad.models.analysis import AnalysisFinding, AnalysisStatus, ContractAnalysisResult, FindingStatus
-from sanad.models.common import ResultStatus
-from sanad.models.extraction import FieldStatus
+from agents import ContractAnalysisAgent, LLMEvidenceInterpreter, NoInterpreter
+from agents.regulatory import CONTRACT_TOPICS
+from extraction import extract_contract
+from models.analysis import AnalysisFinding, AnalysisStatus, ContractAnalysisResult, FindingStatus
+from models.common import ResultStatus
+from models.extraction import FieldStatus
 from tests.fakes.llm import FakeLLMClient
 from tests.fakes.regulatory_adapter import (
     KB_ARTICLE_1,

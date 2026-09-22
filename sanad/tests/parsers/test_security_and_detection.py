@@ -11,12 +11,12 @@ import zipfile
 
 import pytest
 
-from sanad.config import DocumentProcessingSettings
-from sanad.models.documents import DocumentStatus
-from sanad.parsers import DocumentProcessor
-from sanad.parsers.base import BaseDocumentParser
-from sanad.parsers.detection import safe_filename
-from sanad.models.documents import FileType
+from config import DocumentProcessingSettings
+from models.documents import DocumentStatus
+from parsers import DocumentProcessor
+from parsers.base import BaseDocumentParser
+from parsers.detection import safe_filename
+from models.documents import FileType
 from tests.fixtures.documents.builders import contract_text_pdf, image_bytes
 
 

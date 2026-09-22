@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from sanad.config import DocumentProcessingSettings
-from sanad.parsers import DocumentProcessor
+from config import DocumentProcessingSettings
+from parsers import DocumentProcessor
 from tests.fixtures.documents.builders import build_all, write_all
 
 

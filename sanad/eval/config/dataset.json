@@ -1,0 +1,28 @@
+{
+  "dataset_version": "v1",
+  "built_against": {
+    "ground_truth_csv": "eval/data/ground-truth-data.csv",
+    "knowledge_base": "rag/data/labor_law/labor_law_parsed.json",
+    "results_gpt35": "eval/data/results-gpt35.csv",
+    "results_gpt4o": "eval/data/results-gpt4o.csv",
+    "synthetic_content": "tests/fixtures/documents/synthetic_content.py",
+    "builders": "tests/fixtures/documents/builders.py",
+    "salary_pages": "tests/fixtures/salary_pages.py"
+  },
+  "sha256": {
+    "ground_truth_csv": "a8757fd10cdd2b9f1a470874878f22cb6161b47a7c6b805330626bea20051dde",
+    "knowledge_base": "972cd5781a973230ac9e83f4b281ecedb61bff4e64f43b8b6ee307b3630333c6",
+    "results_gpt35": "a96f6458b0d08c86dc17e80b77a6e62652f7658d7d265cb478cc2a589f5a0385",
+    "results_gpt4o": "4305b3251c21d1616160a2f6215952fb21d73b6ece9f61acfa8e83a70bba2107",
+    "synthetic_content": "9c778b27f785cdb5055b4e19d4a537a4ddd398c703c6f9315877add273e83cf7",
+    "builders": "419ea4e726d1ed85db7c1bbf4165ef2d8ba2c27a726a0306736df0dff0f98958",
+    "salary_pages": "8f604db886846acafb192504eb1afc9f3b10e2f9b2ce9377c5dc0dbe64903351"
+  },
+  "law_version_metadata": null,
+  "law_version_note": "The repository contains no law-version, amendment or effective-date metadata. These fields are recorded as unavailable rather than invented.",
+  "never_ground_truth": [
+    "eval/data/results-gpt35.csv",
+    "eval/data/results-gpt4o.csv"
+  ],
+  "path_note": "Paths were repointed by the Phase 2 restructure (hr_assistant/ -> rag/ and eval/). The files themselves were moved untouched, so every sha256 below is the original value and the Golden Dataset was NOT rebuilt."
+}

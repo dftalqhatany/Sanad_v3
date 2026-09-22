@@ -7,7 +7,7 @@ import zipfile
 
 from docx import Document
 
-from sanad.models.documents import DocumentStatus, ExtractionMethod, FileType, SectionType
+from models.documents import DocumentStatus, ExtractionMethod, FileType, SectionType
 from tests.fixtures.documents.builders import empty_docx, image_bytes
 from tests.fixtures.documents.synthetic_content import CONTRACT_AR, CONTRACT_EN, CV_EN
 

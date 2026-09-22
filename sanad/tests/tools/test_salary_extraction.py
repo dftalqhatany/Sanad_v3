@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from sanad.tools.salary_extraction import ExtractionSettings, extract_observations, plain_text, read_number
-from sanad.tools.web_search import WebSearchResult
+from tools.salary_extraction import ExtractionSettings, extract_observations, plain_text, read_number
+from tools.web_search import WebSearchResult
 from tests.fakes.web_search import FakePage, FakeWebSearchClient
 from tests.fixtures import salary_pages as pages
 

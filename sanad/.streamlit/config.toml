@@ -1,0 +1,21 @@
+# Sanad native Streamlit theme.
+# The colours are the ones sampled from the official logo (see frontend/theme.py, which holds the
+# full palette, the contrast ratios and the CSS). This file only makes Streamlit's own widgets -
+# sliders, checkboxes, selection chips, the sidebar chrome - agree with the brand.
+# Read from the directory you run Streamlit in:  streamlit run frontend/app.py
+
+[theme]
+base = "light"
+primaryColor = "#014E2B"            # green-600, the logo's lit face
+backgroundColor = "#F2F8F5"         # green-50, derived page tint
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#0E1B14"               # ink on light: 17.7:1
+linkColor = "#014E2B"               # 9.9:1 on white
+font = "sans serif"
+
+[theme.sidebar]
+backgroundColor = "#00150D"         # green-900, the deepest shadow in the mark
+secondaryBackgroundColor = "#002514"
+textColor = "#F4F8F5"               # 17.6:1 on green-900
+primaryColor = "#C9A84E"            # gold-300, the accessible gold for dark backgrounds (8.3:1)
+linkColor = "#C9A84E"

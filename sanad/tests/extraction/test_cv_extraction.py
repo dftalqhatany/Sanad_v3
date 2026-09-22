@@ -6,9 +6,9 @@ import io
 
 from docx import Document
 
-from sanad.extraction import extract_cv
-from sanad.models.common import ResultStatus
-from sanad.models.extraction import CvExtraction, ExtractionMethodName, FieldStatus
+from extraction import extract_cv
+from models.common import ResultStatus
+from models.extraction import CvExtraction, ExtractionMethodName, FieldStatus
 from tests.fixtures.documents.builders import load_pymupdf
 from tests.fixtures.documents.synthetic_content import CV_AR, CV_EN
 

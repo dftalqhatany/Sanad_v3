@@ -6,19 +6,19 @@ import sys
 
 import pytest
 
-from sanad.agents import ContractAnalysisAgent, LLMEvidenceInterpreter, NoInterpreter, OpenAIChatClient
-from sanad.agents.interpretation import (
+from agents import ContractAnalysisAgent, LLMEvidenceInterpreter, NoInterpreter, OpenAIChatClient
+from agents.interpretation import (
     InterpretationRequest,
     LLMInterpretationOutput,
     _strip_code_fence,
     verify_output,
 )
-from sanad.agents.regulatory import CONTRACT_TOPICS, RegulatoryEvidenceCollector
-from sanad.agents.salary import UnavailableSalaryBenchmarkProvider
-from sanad.agents.shared import fact_from_field
-from sanad.config import AnalysisSettings, SanadSettings
-from sanad.models.analysis import FindingStatus, SalaryBenchmark, SalaryObservation, SalarySource
-from sanad.models.extraction import FieldStatus
+from agents.regulatory import CONTRACT_TOPICS, RegulatoryEvidenceCollector
+from agents.salary import UnavailableSalaryBenchmarkProvider
+from agents.shared import fact_from_field
+from config import AnalysisSettings, SanadSettings
+from models.analysis import FindingStatus, SalaryBenchmark, SalaryObservation, SalarySource
+from models.extraction import FieldStatus
 from tests.fakes.llm import FakeLLMClient
 from tests.fakes.regulatory_adapter import KB_PROBATION_ART_53, KB_WEEKLY_REST_ART_104
 
@@ -160,7 +160,7 @@ def test_from_settings_with_api_key_builds_openai_client_without_calling_it(fake
 
 
 def test_from_settings_uses_the_existing_rag_adapter_by_default():
-    from sanad.rag.adapter import RegulatoryRAGAdapter
+    from rag.adapter import RegulatoryRAGAdapter
 
     agent = ContractAnalysisAgent.from_settings(SanadSettings(openai_api_key=None), AnalysisSettings())
     assert isinstance(agent.evidence_source, RegulatoryRAGAdapter)

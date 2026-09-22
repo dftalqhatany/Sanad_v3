@@ -1,4 +1,4 @@
-"""Regression tests for the approved one-line fix in hr_assistant/hybird_search.py.
+"""Regression tests for the approved one-line fix in rag/retriever.py.
 
 Bug: the Qdrant payload field "index" is 1-based (labor_law_parsed.json) but was used directly as a
 0-based position in dense_scores, so every semantic hit was credited to the NEXT article and a hit
@@ -20,11 +20,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from sanad.models import ResultStatus
+from models import ResultStatus
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 CHANGE = json.loads((FIXTURES / "approved_legacy_changes.json").read_text(encoding="utf-8"))["changes"][
-    "hr_assistant/hybird_search.py"
+    "rag/retriever.py"
 ]
 ARTICLE_109 = 111  # kb index of "المادة التاسعة بعد المائة"
 LAST_ARTICLE = 249
@@ -69,24 +69,25 @@ def hit_configurations():
 
 
 @pytest.fixture
-def fixed_module(adapter, legacy_dir):
+def fixed_module(adapter, rag_dir):
     adapter.retrieve_evidence("warm up")  # loads the real legacy modules through the adapter
-    module = sys.modules["hybird_search"]
-    assert Path(module.__file__).resolve() == (legacy_dir / "hybird_search.py").resolve()
+    module = sys.modules["rag.retriever"]
+    assert Path(module.__file__).resolve() == (rag_dir / "retriever.py").resolve()
     return module
 
 
 @pytest.fixture
-def original_module(infra, legacy_dir, baseline):
-    """Pre-fix hybird_search.py rebuilt in memory by reverting ONLY the fixed line (hash-checked, nothing written)."""
-    current = (legacy_dir / "hybird_search.py").read_bytes()
+def original_module(infra, rag_dir, baseline):
+    """Pre-fix retriever.py rebuilt in memory by reverting ONLY the fixed line (hash-checked, nothing written)."""
+    current = (rag_dir / "retriever.py").read_bytes()
     fixed_line = (CHANGE["fixed_line"] + "\n").encode()
     original_line = (CHANGE["original_line"] + "\n").encode()
-    assert current.count(fixed_line) == 1, "the approved fix is not applied to hybird_search.py"
+    assert current.count(fixed_line) == 1, "the approved fix is not applied to retriever.py"
     source = current.replace(fixed_line, original_line)
-    assert hashlib.sha256(source).hexdigest() == baseline["protected_files_sha256"]["hr_assistant/hybird_search.py"]
-    module = types.ModuleType("hybird_search_original")
-    exec(compile(source, "hybird_search_original.py", "exec"), module.__dict__)
+    # the historical baseline still holds the pre-fix hash under the file's original name
+    assert hashlib.sha256(source).hexdigest() == baseline["protected_files_sha256"][CHANGE["migrated_from"]]
+    module = types.ModuleType("retriever_original")
+    exec(compile(source, "retriever_original.py", "exec"), module.__dict__)
     return module
 
 

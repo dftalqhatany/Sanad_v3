@@ -1,11 +1,14 @@
-"""Legacy output -> structured evidence, without inventing or dropping information."""
+"""Retriever/backend output -> structured evidence, without inventing or dropping information.
+
+"legacy" in the names below mirrors the model field `RegulatoryEvidence.legacy_reference` and the
+function `evidence_from_legacy_reference`, which keep their names because they appear in API output."""
 
 import numpy as np
 import pytest
 
-from sanad.models.regulatory import SourceDocument
-from sanad.rag.errors import InvalidLegacyOutputError
-from sanad.rag.mapping import evidence_from_legacy_reference, evidence_from_retriever_result
+from models.regulatory import SourceDocument
+from rag.errors import InvalidLegacyOutputError
+from rag.mapping import evidence_from_legacy_reference, evidence_from_retriever_result
 
 SOURCE = SourceDocument(
     title_ar="نظام العمل", title_en="Saudi Labor Law", publisher="MHRSD",
@@ -46,7 +49,7 @@ def test_malformed_legacy_results_raise(bad):
 
 
 def _legacy_reference(article, similarity=0.812):
-    """Same keys/values chatbot_backend.answer_policy_question builds."""
+    """Same keys/values rag.backend.answer_policy_question builds."""
     return {
         "similarity": similarity,
         "part": article["part_title_ar"],

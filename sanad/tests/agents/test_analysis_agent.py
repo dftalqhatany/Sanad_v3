@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from sanad.agents import AnalysisAgent, ContractAnalysisAgent, target_job_from_contract
-from sanad.agents.analysis import combined_status
-from sanad.config import AnalysisSettings, SanadSettings
-from sanad.models.analysis import AnalysisBundle, AnalysisStatus, TargetJob
+from agents import AnalysisAgent, ContractAnalysisAgent, target_job_from_contract
+from agents.analysis import combined_status
+from config import AnalysisSettings, SanadSettings
+from models.analysis import AnalysisBundle, AnalysisStatus, TargetJob
 from tests.fakes.regulatory_adapter import FakeRegulatoryAdapter
 
 S = AnalysisStatus

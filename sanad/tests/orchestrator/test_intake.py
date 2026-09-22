@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from sanad.models.common import ResultStatus
-from sanad.models.orchestration import DocumentRole, UploadedDocument
-from sanad.orchestrator import DocumentIntake
+from models.common import ResultStatus
+from models.orchestration import DocumentRole, UploadedDocument
+from orchestrator import DocumentIntake
 from tests.fixtures.documents.builders import docx_from_paragraphs
 from tests.orchestrator.conftest import CONTRACT_LINES
 

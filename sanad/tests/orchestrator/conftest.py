@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from sanad.agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent
-from sanad.models.orchestration import DocumentRole, UploadedDocument
-from sanad.orchestrator import SanadOrchestrator
+from agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent
+from models.orchestration import DocumentRole, UploadedDocument
+from orchestrator import SanadOrchestrator
 from tests.fakes.regulatory_adapter import FakeRegulatoryAdapter
 from tests.fixtures.documents.builders import docx_from_paragraphs
 from tests.fixtures.documents.fixtures import parsed, processor, sample_bytes, sample_paths  # noqa: F401

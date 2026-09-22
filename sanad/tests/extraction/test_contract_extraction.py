@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from sanad.extraction import extract_contract
-from sanad.extraction.text import flat
-from sanad.models.common import ResultStatus
-from sanad.models.extraction import ContractExtraction, ExtractionMethodName, FieldStatus
+from extraction import extract_contract
+from extraction.text import flat
+from models.common import ResultStatus
+from models.extraction import ContractExtraction, ExtractionMethodName, FieldStatus
 from tests.fixtures.documents.builders import docx_from_paragraphs, pdf_with_text_pages_and_scanned_page
 
 FOUND, NOT_FOUND, AMBIGUOUS = FieldStatus.FOUND, FieldStatus.NOT_FOUND, FieldStatus.AMBIGUOUS

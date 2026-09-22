@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from sanad.agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent
-from sanad.agents.salary import UnavailableSalaryBenchmarkProvider, build_salary_provider
-from sanad.agents.salary_web import WebSearchSalaryProvider, build_query
-from sanad.config import SalarySettings
-from sanad.models.analysis import AnalysisStatus, SalaryQuery
-from sanad.models.orchestration import SanadRequest, TaskHint, UploadedDocument
-from sanad.orchestrator import SanadOrchestrator
-from sanad.tools.web_search import WebSearchError
+from agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent
+from agents.salary import UnavailableSalaryBenchmarkProvider, build_salary_provider
+from agents.salary_web import WebSearchSalaryProvider, build_query
+from config import SalarySettings
+from models.analysis import AnalysisStatus, SalaryQuery
+from models.orchestration import SanadRequest, TaskHint, UploadedDocument
+from orchestrator import SanadOrchestrator
+from tools.web_search import WebSearchError
 from tests.fakes.web_search import FakePage, FakeWebSearchClient
 from tests.fixtures import salary_pages as pages
 

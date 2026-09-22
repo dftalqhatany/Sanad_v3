@@ -16,9 +16,9 @@ import sys
 
 import pytest
 
-from sanad.config import SanadSettings
-from sanad.models import ResultStatus
-from sanad.rag import RegulatoryRAGAdapter
+from config import SanadSettings
+from models import ResultStatus
+from rag import RegulatoryRAGAdapter
 
 pytestmark = pytest.mark.live
 
@@ -102,21 +102,21 @@ def test_live_adapter_returns_regulatory_evidence_from_existing_rag(live_adapter
 def test_live_adapter_matches_direct_legacy_retrieval(live_adapter):
     adapter, _ = live_adapter
     result = adapter.retrieve_evidence(ANNUAL_LEAVE_QUESTION_AR)
-    direct = sys.modules["chatbot_backend"].get_retriever().retrieve(ANNUAL_LEAVE_QUESTION_AR)
+    direct = sys.modules["rag.backend"].get_retriever().retrieve(ANNUAL_LEAVE_QUESTION_AR)
     assert [(e.raw_metadata["index"], round(e.score, 6)) for e in result.evidence] == [
         (int(r["metadata"]["index"]), round(float(r["score"]), 6)) for r in direct
     ]
 
 
 def test_live_top_semantic_hit_is_credited_to_the_article_qdrant_returned(live_adapter):
-    """Regression for the approved hybird_search.py index fix, on the real collection.
+    """Regression for the approved retriever.py index fix, on the real collection.
 
     After min-max normalisation the top Qdrant hit contributes alpha * 1.0 = 0.6, while articles without a
     semantic hit can reach at most 0.4, so only the other two Qdrant hits can outrank it.
     """
     adapter, _ = live_adapter
     result = adapter.retrieve_evidence(ANNUAL_LEAVE_QUESTION_AR)
-    dense_hits = sys.modules["chatbot_backend"].get_retriever().dense.retrieve(ANNUAL_LEAVE_QUESTION_AR)
+    dense_hits = sys.modules["rag.backend"].get_retriever().dense.retrieve(ANNUAL_LEAVE_QUESTION_AR)
     assert dense_hits, "Qdrant returned no semantic hits"
     top_index = int(max(dense_hits, key=lambda hit: hit.score).node.metadata["index"])
     assert top_index in [item.reference.kb_index for item in result.evidence[:3]]
@@ -125,7 +125,7 @@ def test_live_top_semantic_hit_is_credited_to_the_article_qdrant_returned(live_a
 @pytest.mark.live_llm
 def test_live_existing_rag_still_answers_a_normal_question_like_streamlit(live_adapter, api_key):
     live_adapter[0].retrieve_evidence("warm up")  # ensure the legacy module is loaded via the adapter
-    backend = sys.modules["chatbot_backend"]
+    backend = sys.modules["rag.backend"]
     answer, references = backend.answer_policy_question(ANNUAL_LEAVE_QUESTION_AR, None, api_key=api_key)
     assert isinstance(answer, str) and answer.strip()
     assert references
@@ -140,5 +140,5 @@ def test_live_adapter_ask_returns_answer_with_evidence(live_adapter, api_key):
     assert result.status is ResultStatus.SUCCESS, (result.errors, result.warnings)
     assert result.answer and result.evidence
     assert all(item.metadata_complete for item in result.evidence)
-    direct = sys.modules["chatbot_backend"].get_retriever().retrieve(ANNUAL_LEAVE_QUESTION_AR)
+    direct = sys.modules["rag.backend"].get_retriever().retrieve(ANNUAL_LEAVE_QUESTION_AR)
     assert [e.raw_metadata["index"] for e in result.evidence] == [int(r["metadata"]["index"]) for r in direct]

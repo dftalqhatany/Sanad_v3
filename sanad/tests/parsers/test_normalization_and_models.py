@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from sanad.config import DocumentProcessingSettings
-from sanad.models.common import ErrorInfo
-from sanad.models.documents import DocumentStatus, FileType, ParsedDocument
-from sanad.parsers import DocumentProcessor
-from sanad.parsers.errors import sanitize_message
-from sanad.parsers.normalization import NormalizationReport, detect_language, normalize_text
+from config import DocumentProcessingSettings
+from models.common import ErrorInfo
+from models.documents import DocumentStatus, FileType, ParsedDocument
+from parsers import DocumentProcessor
+from parsers.errors import sanitize_message
+from parsers.normalization import NormalizationReport, detect_language, normalize_text
 
 ARABIC_LEGAL = "المادةُ التاسعة بعد المائة: يســتحق العامل إجازةً سنويةً لا تقل عن واحد وعشرين يوماً (٢١)، وتُزاد إلى ثلاثين."
 

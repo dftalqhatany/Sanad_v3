@@ -1,0 +1,68 @@
+{
+  "description": "Files removed from the existing RAG project with the project owner's explicit approval. The recorded hashes are copied from legacy_rag_baseline.json and kept here as provenance: the baseline is never rewritten, so what these files were survives their deletion. Every protected file NOT listed here must still match the baseline byte for byte, and any file removed, modified or added without an entry here still fails tests/integrity/test_legacy_rag_unchanged.py.",
+  "approved_by": "project owner (dalal)",
+  "approved_at": "2026-09-21",
+  "verified_before_approval": "Searched every .py, .ipynb, .md, .json, .txt, .toml, .cfg, .yml under hr_assistant/ and sanad/ for 'screenshot' and 'assets/'. The only references outside this record are seven <img> tags in hr_assistant/README.md (files 1, 2, 4, 6, 8, 9, 10); files 3, 5 and 7 were referenced by nothing at all. No Python module or notebook opens them. Consequence accepted: hr_assistant/README.md now renders with seven broken images.",
+  "removals": {
+    "hr_assistant/assets/screenshots/1.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "21c80b2fa7d6be33b4c50cb555175c4c0f95073b4f8fa1461bd675b4b21d9438",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    },
+    "hr_assistant/assets/screenshots/2.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "aa537442b7f4c555695a5ef9a39621d9f7c954efe602f415fdec025663ddb63a",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    },
+    "hr_assistant/assets/screenshots/3.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "6255da83f08128310f1b274afa089d0b17d389a8b78f7abfede14114d9d8bcc1",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    },
+    "hr_assistant/assets/screenshots/4.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "7c47d0ac2ec3877a7d5bbda0230bca7f9477c820ce08c555bacb76e6ce9f126d",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    },
+    "hr_assistant/assets/screenshots/5.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "d4baa47bbc9eda73da387c3d1c8609bc501c5989dc63a968c1b1646122f66366",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    },
+    "hr_assistant/assets/screenshots/6.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "bdd442ce9fab9ce1af7475633879d9e550b8ff1d6f91b9b7946f2708d963292b",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    },
+    "hr_assistant/assets/screenshots/7.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "1bc6382b642da5b2d719749db166c6ca4ce944a81b24bbe4c407d95347cd5ad1",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    },
+    "hr_assistant/assets/screenshots/8.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "e007c42a392064e5344224e567cd9a082fed86eb97745dcfe73a90717a80fd39",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    },
+    "hr_assistant/assets/screenshots/9.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "6c9fc6e5e87b7a0c8c446a7a9ff8872a120425da7fb13fc6af5db5811b655d6a",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    },
+    "hr_assistant/assets/screenshots/10.png": {
+      "approved": "2026-09-21, after Checkpoint 9 and before Checkpoint 10",
+      "reason": "Documentation screenshot of the legacy Streamlit interface (hr_assistant/README.md). Not a runtime dependency of Sanad: no module under sanad/ or hr_assistant/ imports, opens or references it, and the regulatory retrieval path reads only data/labor_law/labor_law_parsed.json. Removed by the project owner during project cleanup.",
+      "sha256_at_removal": "4a7a5ef1d3422986246af042db83d1a6077a12fdd7d8d9401eb41426b3c2208f",
+      "recorded_in_baseline": "tests/fixtures/legacy_rag_baseline.json"
+    }
+  }
+}

@@ -6,9 +6,9 @@ import logging
 
 import pytest
 
-from sanad.models.analysis import AnalysisStatus, TargetJob
-from sanad.models.common import ResultStatus
-from sanad.models.orchestration import (
+from models.analysis import AnalysisStatus, TargetJob
+from models.common import ResultStatus
+from models.orchestration import (
     DocumentRole,
     OrchestratorResult,
     Route,
@@ -16,8 +16,8 @@ from sanad.models.orchestration import (
     TaskHint,
     UploadedDocument,
 )
-from sanad.orchestrator import SanadOrchestrator
-from sanad.orchestrator.routing import route_request
+from orchestrator import SanadOrchestrator
+from orchestrator.routing import route_request
 from tests.orchestrator.conftest import CONTRACT_LINES, SpyAnalysisAgent
 
 OFFER_B = [line.replace("12,000", "10,000").replace("30 days", "21 days").replace("Riyadh", "Jeddah")

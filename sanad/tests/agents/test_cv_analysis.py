@@ -6,12 +6,12 @@ import logging
 
 import pytest
 
-from sanad.agents import CvAnalysisAgent
-from sanad.agents.cv_analysis import tokens
-from sanad.extraction import extract_cv
-from sanad.models.analysis import AnalysisStatus, CompatibilityStatus, CvAnalysisResult, RequirementAssessment, TargetJob
-from sanad.models.common import ResultStatus
-from sanad.models.extraction import FieldStatus
+from agents import CvAnalysisAgent
+from agents.cv_analysis import tokens
+from extraction import extract_cv
+from models.analysis import AnalysisStatus, CompatibilityStatus, CvAnalysisResult, RequirementAssessment, TargetJob
+from models.common import ResultStatus
+from models.extraction import FieldStatus
 
 EXPLICIT_MATCH, PARTIAL = CompatibilityStatus.EXPLICIT_MATCH, CompatibilityStatus.PARTIAL_MATCH
 MISSING, INSUFFICIENT = CompatibilityStatus.MISSING_REQUIREMENT, CompatibilityStatus.INSUFFICIENT_INFORMATION

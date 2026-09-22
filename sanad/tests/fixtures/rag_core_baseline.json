@@ -1,0 +1,190 @@
+{
+  "description": "Baseline of Sanad's RAG core after the Phase 2 migration of hr_assistant/ into rag/ and eval/. Every sha256 here is COPIED from tests/fixtures/legacy_rag_baseline.json (recorded before any Sanad code existed) or from approved_legacy_changes.json, never recomputed from the filesystem: the guarantee carries across the move unbroken. legacy_rag_baseline.json is kept as the historical record of where these files came from and is never rewritten. Phase 3 additionally repointed the five evaluation notebooks' relative paths; those changes are recorded under changed_in_phase3 with reversible replacements. rag/README.md was replaced in Phase 3 and is recorded under replaced_in_phase3.",
+  "recorded_at_utc": "2026-09-21T00:00:00+00:00",
+  "migrated_from_baseline": "tests/fixtures/legacy_rag_baseline.json",
+  "historical_git_head": "db03eec817035b52dd6d65b4b5fb11b8e9a5ea17",
+  "unchanged_files_sha256": {
+    "rag/retriever.py": {
+      "sha256": "ff78a700aa42b1e9bb49bf23ecf1c4a6f7dd0db927cb5efc2627bc77316d7110",
+      "migrated_from": "hr_assistant/hybird_search.py",
+      "carries_approved_fix": true
+    },
+    "rag/data/labor_law/labor_law_ar.pdf": {
+      "sha256": "cfb8e0e6bb0176ebe045e38aed072fc4f7ce5c2f72ee796f4de0beb216c4b5d6",
+      "migrated_from": "hr_assistant/data/labor_law/labor_law_ar.pdf"
+    },
+    "rag/data/labor_law/labor_law_parsed.json": {
+      "sha256": "972cd5781a973230ac9e83f4b281ecedb61bff4e64f43b8b6ee307b3630333c6",
+      "migrated_from": "hr_assistant/data/labor_law/labor_law_parsed.json"
+    },
+    "eval/data/ground-truth-data.csv": {
+      "sha256": "a8757fd10cdd2b9f1a470874878f22cb6161b47a7c6b805330626bea20051dde",
+      "migrated_from": "hr_assistant/data/ground-truth-data.csv"
+    },
+    "eval/data/results-gpt35.csv": {
+      "sha256": "a96f6458b0d08c86dc17e80b77a6e62652f7658d7d265cb478cc2a589f5a0385",
+      "migrated_from": "hr_assistant/data/results-gpt35.csv"
+    },
+    "eval/data/results-gpt4o.csv": {
+      "sha256": "4305b3251c21d1616160a2f6215952fb21d73b6ece9f61acfa8e83a70bba2107",
+      "migrated_from": "hr_assistant/data/results-gpt4o.csv"
+    }
+  },
+  "changed_during_migration": {
+    "rag/backend.py": {
+      "migrated_from": "hr_assistant/chatbot_backend.py",
+      "reason": "Structural migration only: the flat import `from hybird_search import HybridRetriever` became `from rag.retriever import HybridRetriever`, and the knowledge base is opened relative to this file instead of the current working directory. Same articles, same retrieval, same prompts, same answer pipeline.",
+      "sha256_before": "a2a2c4dcb78d36e4691e55ebb4119738fb2e05bbad061a1b04fda98462b37cc9",
+      "sha256_after": "b63bb76ea025c1ffef7c22e9f2857a6628e833dfba283ab2c8bf5bd7800f85b4",
+      "changed_at": "2026-09-21, Phase 2 restructure",
+      "replacements": [
+        {
+          "after": "import re\nimport json\nfrom pathlib import Path\nfrom openai import OpenAI\nfrom rag.retriever import HybridRetriever\n",
+          "before": "import re\nimport json\nfrom openai import OpenAI\nfrom hybird_search import HybridRetriever\n"
+        },
+        {
+          "after": "# The knowledge base now travels with this package, so it is located relative to this file\n# instead of the current working directory. Same file, same contents, same articles.\nKNOWLEDGE_BASE = Path(__file__).resolve().parent / \"data\" / \"labor_law\" / \"labor_law_parsed.json\"\ndocuments = json.load(open(KNOWLEDGE_BASE, encoding=\"utf-8\"))\n",
+          "before": "documents = json.load(open(\"data/labor_law/labor_law_parsed.json\", encoding=\"utf-8\"))\n"
+        }
+      ],
+      "reversible": "Reverting exactly these two replacements reproduces hr_assistant/chatbot_backend.py byte for byte (sha256_before). Nothing else in the file was touched."
+    }
+  },
+  "not_migrated": {
+    "hr_assistant/app.py": "The legacy Streamlit UI. Superseded by frontend/ + api/ + the orchestrator's regulatory route, which serve the same purpose through the same RAG. Recoverable from git history.",
+    "hr_assistant/requirements.txt": "Merged into requirements.txt (RAG runtime + knowledge-base rebuild sections).",
+    "hr_assistant/query_data_vector.ipynb": "Ad-hoc scratch notebook: four printed queries, no output artefact, referenced by nothing.",
+    "hr_assistant/assets/screenshots/1.png": "Documentation screenshot; see approved_legacy_removals.json.",
+    "hr_assistant/assets/screenshots/10.png": "Documentation screenshot; see approved_legacy_removals.json.",
+    "hr_assistant/assets/screenshots/2.png": "Documentation screenshot; see approved_legacy_removals.json.",
+    "hr_assistant/assets/screenshots/3.png": "Documentation screenshot; see approved_legacy_removals.json.",
+    "hr_assistant/assets/screenshots/4.png": "Documentation screenshot; see approved_legacy_removals.json.",
+    "hr_assistant/assets/screenshots/5.png": "Documentation screenshot; see approved_legacy_removals.json.",
+    "hr_assistant/assets/screenshots/6.png": "Documentation screenshot; see approved_legacy_removals.json.",
+    "hr_assistant/assets/screenshots/7.png": "Documentation screenshot; see approved_legacy_removals.json.",
+    "hr_assistant/assets/screenshots/8.png": "Documentation screenshot; see approved_legacy_removals.json.",
+    "hr_assistant/assets/screenshots/9.png": "Documentation screenshot; see approved_legacy_removals.json."
+  },
+  "qdrant": {
+    "path": "rag/qdrant_storage",
+    "collections": [
+      "labor_law_ar",
+      "saudi_labor_law"
+    ],
+    "collection_configs_sha256": {
+      "rag/qdrant_storage/collections/labor_law_ar/config.json": "b814b67439e9249e06a7f29164950fd9f3b139df408045908c8eaea1ba70e7c2",
+      "rag/qdrant_storage/collections/saudi_labor_law/config.json": "b814b67439e9249e06a7f29164950fd9f3b139df408045908c8eaea1ba70e7c2"
+    },
+    "note": "Moved intact from hr_assistant/qdrant_storage/ with the Qdrant container stopped. Segment and WAL files are excluded from hashing: a running Qdrant rewrites them during normal operation."
+  },
+  "knowledge_base": {
+    "path": "rag/data/labor_law/labor_law_parsed.json",
+    "article_count": 249
+  },
+  "changed_in_phase3": {
+    "eval/notebooks/evaluation_data.ipynb": {
+      "migrated_from": "hr_assistant/evaluation_data.ipynb",
+      "reason": "Phase 3 path fix only: the notebook's relative data paths were repointed at rag/data/ and eval/data/ after the Phase 2 move, and rag_evaluation.ipynb's flat `hybird_search` import became `rag.retriever`. No cell logic, parameter or recorded output was changed.",
+      "sha256_before": "4201bde14b68570c43c58ee26959e2730e6e16a7767ba9335d67bd5105ceedc8",
+      "sha256_after": "764181007d37c1cc69a58fae64f29e0751dc16dad2dfd096dcc08677583d7dea",
+      "changed_at": "2026-09-21, Phase 3 cleanup",
+      "replacements": [
+        {
+          "after": "\\\"../../rag/data/labor_law\\\"",
+          "before": "\\\"data/labor_law\\\""
+        },
+        {
+          "after": "'../data/ground-truth-data.csv'",
+          "before": "'data/ground-truth-data.csv'"
+        }
+      ],
+      "reversible": "Reverting exactly these replacements reproduces the pre-Phase-3 file byte for byte."
+    },
+    "eval/notebooks/process_data_vectors.ipynb": {
+      "migrated_from": "hr_assistant/process_data_vectors.ipynb",
+      "reason": "Phase 3 path fix only: the notebook's relative data paths were repointed at rag/data/ and eval/data/ after the Phase 2 move, and rag_evaluation.ipynb's flat `hybird_search` import became `rag.retriever`. No cell logic, parameter or recorded output was changed.",
+      "sha256_before": "22b6aca23af915e7d9936a4e3ad8203065d56def5cd4b8d79f00a0718f4e23f1",
+      "sha256_after": "c9207f2007e7e101392d87a9aa53f572f971af431d19a87ecf9c0a7c4be6e70d",
+      "changed_at": "2026-09-21, Phase 3 cleanup",
+      "replacements": [
+        {
+          "after": "\\\"../../rag/data/labor_law\\\"",
+          "before": "\\\"data/labor_law\\\""
+        }
+      ],
+      "reversible": "Reverting exactly these replacements reproduces the pre-Phase-3 file byte for byte."
+    },
+    "eval/notebooks/process_labor_pdf.ipynb": {
+      "migrated_from": "hr_assistant/process_labor_pdf.ipynb",
+      "reason": "Phase 3 path fix only: the notebook's relative data paths were repointed at rag/data/ and eval/data/ after the Phase 2 move, and rag_evaluation.ipynb's flat `hybird_search` import became `rag.retriever`. No cell logic, parameter or recorded output was changed.",
+      "sha256_before": "fb4621ac4041a30e165dce93ce4080a254aea9958db3191a4d66bde385421ba3",
+      "sha256_after": "e83a54e33d28dd6ae00c02b69a6fbfe2ed3cdd87cff7131026cc239c08361ae7",
+      "changed_at": "2026-09-21, Phase 3 cleanup",
+      "replacements": [
+        {
+          "after": "\\\"../../rag/data/labor_law\\\"",
+          "before": "\\\"data/labor_law\\\""
+        }
+      ],
+      "reversible": "Reverting exactly these replacements reproduces the pre-Phase-3 file byte for byte."
+    },
+    "eval/notebooks/rag_evaluation.ipynb": {
+      "migrated_from": "hr_assistant/rag_evaluation.ipynb",
+      "reason": "Phase 3 path fix only: the notebook's relative data paths were repointed at rag/data/ and eval/data/ after the Phase 2 move, and rag_evaluation.ipynb's flat `hybird_search` import became `rag.retriever`. No cell logic, parameter or recorded output was changed.",
+      "sha256_before": "fc7bc8fecbf4b5c20a16c39caf40681cb00b99bf7db8d685669beb8f50ff70df",
+      "sha256_after": "8e52c05ff606e3d4950f210569a69bdff63944f711c38767c8c607dd21811c97",
+      "changed_at": "2026-09-21, Phase 3 cleanup",
+      "replacements": [
+        {
+          "after": "\\\"../../rag/data/labor_law/labor_law_parsed.json\\\"",
+          "before": "\\\"data/labor_law/labor_law_parsed.json\\\""
+        },
+        {
+          "after": "\\\"../data/ground-truth-data.csv\\\"",
+          "before": "\\\"data/ground-truth-data.csv\\\""
+        },
+        {
+          "after": "'../data/results-gpt35.csv'",
+          "before": "'data/results-gpt35.csv'"
+        },
+        {
+          "after": "'../data/results-gpt4o.csv'",
+          "before": "'data/results-gpt4o.csv'"
+        },
+        {
+          "after": "    \"import sys\\n\",\n    \"sys.path.insert(0, \\\"../..\\\")  # the project root, so the rag package is importable\\n\",\n    \"from rag.retriever import HybridRetriever\\n\",",
+          "before": "    \"from hybird_search import HybridRetriever\\n\","
+        }
+      ],
+      "reversible": "Reverting exactly these replacements reproduces the pre-Phase-3 file byte for byte."
+    },
+    "eval/notebooks/search_evaluation.ipynb": {
+      "migrated_from": "hr_assistant/search_evaluation.ipynb",
+      "reason": "Phase 3 path fix only: the notebook's relative data paths were repointed at rag/data/ and eval/data/ after the Phase 2 move, and rag_evaluation.ipynb's flat `hybird_search` import became `rag.retriever`. No cell logic, parameter or recorded output was changed.",
+      "sha256_before": "e807f0044b840d59184527b8ef451676a530b0ca0c0c2442cee1b6d1cfa0f558",
+      "sha256_after": "179c8df78b7bab38529bec5d10da53dc82e994ada0a137a40a0af19d45e2d222",
+      "changed_at": "2026-09-21, Phase 3 cleanup",
+      "replacements": [
+        {
+          "after": "\\\"../../rag/data/labor_law/labor_law_parsed.json\\\"",
+          "before": "\\\"data/labor_law/labor_law_parsed.json\\\""
+        },
+        {
+          "after": "\\\"../data/ground-truth-data.csv\\\"",
+          "before": "\\\"data/ground-truth-data.csv\\\""
+        }
+      ],
+      "reversible": "Reverting exactly these replacements reproduces the pre-Phase-3 file byte for byte."
+    }
+  },
+  "replaced_in_phase3": {
+    "rag/README.md": {
+      "migrated_from": "hr_assistant/README.md",
+      "reason": "Replaced, not edited. The migrated file was the standalone hr_assistant project's README: it described that project as active, documented a Streamlit app and a folder structure that no longer exist, embedded screenshots that were removed with the owner's approval, and gave a Docker bind mount pointing at the old storage path. It is now the RAG package's README. The technical facts it carried (data source URL, translation model, embedding model, retrieval parameters, collections) are preserved; the original is in git history.",
+      "sha256_before": "7c9a40c6933c6d72ab3a502720efd9b7913dfd5142756100be0d74e380f2151b",
+      "sha256_after": "3e28712641a6eedfdb5815aca8cc596cb106ee00791a8b5d5689bd15f9832732",
+      "changed_at": "2026-09-21, Phase 3 cleanup",
+      "not_reversible": "This is a rewrite, not a set of replacements. The new file is pinned by sha256_after."
+    }
+  }
+}

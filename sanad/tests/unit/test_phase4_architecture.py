@@ -9,13 +9,13 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-AGENT_FILES = sorted((PROJECT_ROOT / "sanad" / "agents").rglob("*.py"))
-PHASE4_FILES = [*AGENT_FILES, PROJECT_ROOT / "sanad" / "models" / "analysis.py"]
+AGENT_FILES = sorted((PROJECT_ROOT / "agents").rglob("*.py"))
+PHASE4_FILES = [*AGENT_FILES, PROJECT_ROOT / "models" / "analysis.py"]
 
-# Retrieval / vector / embedding / BM25 / legacy RAG internals must never be used directly by an agent.
-FORBIDDEN_EVERYWHERE = ("qdrant_client", "llama_index", "hybird_search", "chatbot_backend", "rank_bm25",
+# Retrieval / vector / embedding / BM25 / RAG internals must never be used directly by an agent.
+FORBIDDEN_EVERYWHERE = ("qdrant_client", "llama_index", "rag.retriever", "rag.backend", "rank_bm25",
                         "sentence_transformers", "transformers", "torch", "sklearn", "langchain", "chromadb", "faiss",
-                        "sanad.rag.legacy_loader", "sanad.rag.legacy_config", "sanad.parsers")
+                        "rag.loader", "rag.retrieval_config", "parsers")
 FORBIDDEN_NAMES = ("HybridRetriever", "QdrantClient", "QdrantVectorStore", "VectorStoreIndex", "BM25Okapi",
                    "HuggingFaceEmbedding", "VectorIndexRetriever")
 
@@ -31,7 +31,7 @@ def _imports(path: Path):
             yield node, node.module or "", id(node) in top_level
 
 
-def test_agents_do_not_import_retrieval_vector_embedding_or_legacy_modules():
+def test_agents_do_not_import_retrieval_vector_embedding_or_rag_internals():
     offenders = [f"{path.name}:{node.lineno} {name}" for path in PHASE4_FILES for node, name, _ in _imports(path)
                  if any(name == f or name.startswith(f + ".") for f in FORBIDDEN_EVERYWHERE)]
     assert len(AGENT_FILES) >= 8
@@ -40,8 +40,8 @@ def test_agents_do_not_import_retrieval_vector_embedding_or_legacy_modules():
 
 def test_the_only_rag_import_is_the_existing_adapter_and_it_is_lazy():
     rag_imports = [(path.name, name, top) for path in PHASE4_FILES for _, name, top in _imports(path)
-                   if name == "sanad.rag" or name.startswith("sanad.rag.")]
-    assert rag_imports == [("contract_analysis.py", "sanad.rag.adapter", False)]
+                   if name == "rag" or name.startswith("rag.")]
+    assert rag_imports == [("contract_analysis.py", "rag.adapter", False)]
 
 
 def test_openai_is_only_imported_lazily_inside_the_client():
@@ -62,7 +62,7 @@ def test_agents_do_not_reference_retriever_or_vector_store_classes():
 
 def test_agents_stay_agents():
     # Later phases live in their own packages: sanad/orchestrator (Phase 6) and sanad/api (Phase 7).
-    agents = PROJECT_ROOT / "sanad" / "agents"
+    agents = PROJECT_ROOT / "agents"
     names = {path.stem for path in agents.glob("*.py")}
     assert not names & {"orchestrator", "supervisor", "router", "api", "app", "server", "frontend"}
     agent_text = "\n".join(path.read_text(encoding="utf-8") for path in AGENT_FILES)
@@ -71,21 +71,21 @@ def test_agents_stay_agents():
 
 
 def test_running_the_agents_loads_no_rag_infrastructure_or_openai():
-    # The fake adapter uses the real sanad.rag.mapping (a Sanad module); the legacy RAG itself must stay unloaded.
+    # The fake adapter uses the real rag.mapping; rag.backend and rag.retriever must stay unloaded.
     code = (
         "import sys, json\n"
-        "import sanad.agents\n"
-        "assert not [m for m in sys.modules if m.startswith('sanad.rag')], 'importing sanad.agents loaded sanad.rag'\n"
-        "from sanad.agents import AnalysisAgent, ContractAnalysisAgent\n"
-        "from sanad.config import DocumentProcessingSettings\n"
-        "from sanad.parsers import DocumentProcessor\n"
-        "from sanad.extraction import extract_contract, extract_cv\n"
-        "from sanad.models.analysis import TargetJob\n"
+        "import agents\n"
+        "assert not [m for m in sys.modules if m.startswith('rag')], 'importing agents loaded a rag module'\n"
+        "from agents import AnalysisAgent, ContractAnalysisAgent\n"
+        "from config import DocumentProcessingSettings\n"
+        "from parsers import DocumentProcessor\n"
+        "from extraction import extract_contract, extract_cv\n"
+        "from models.analysis import TargetJob\n"
         "from tests.fixtures.documents.builders import build_all\n"
         "from tests.fakes.regulatory_adapter import FakeRegulatoryAdapter\n"
         "from tests.fakes.llm import FakeLLMClient\n"
-        "from sanad.agents import LLMEvidenceInterpreter\n"
-        "kb = json.load(open('../hr_assistant/data/labor_law/labor_law_parsed.json', encoding='utf-8'))\n"
+        "from agents import LLMEvidenceInterpreter\n"
+        "kb = json.load(open('rag/data/labor_law/labor_law_parsed.json', encoding='utf-8'))\n"
         "processor = DocumentProcessor(DocumentProcessingSettings())\n"
         "docs = build_all()\n"
         "contract = extract_contract(processor.parse_bytes(docs['sample_contract_ar.docx'], 'c.docx'))\n"
@@ -93,9 +93,10 @@ def test_running_the_agents_loads_no_rag_infrastructure_or_openai():
         "agent = AnalysisAgent(ContractAnalysisAgent(FakeRegulatoryAdapter(kb), LLMEvidenceInterpreter(FakeLLMClient())))\n"
         "bundle = agent.analyze(contract=contract, cv=cv, target_job=TargetJob(title='Analyst'))\n"
         "assert bundle.contract_analysis.evidence\n"
-        "roots = ('chatbot_backend', 'hybird_search', 'llama_index', 'qdrant_client', 'openai', 'rank_bm25',\n"
+        "roots = ('llama_index', 'qdrant_client', 'openai', 'rank_bm25',\n"
         "         'sentence_transformers', 'torch', 'transformers')\n"
         "loaded = [m for m in sys.modules if m.split('.')[0] in roots]\n"
+        "loaded += [m for m in ('rag.backend', 'rag.retriever') if m in sys.modules]\n"
         "assert not loaded, loaded\n"
         "print('clean')\n"
     )

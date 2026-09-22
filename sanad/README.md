@@ -1,72 +1,155 @@
-# Sanad
+# Sanad (سند)
 
-Sanad analyses Saudi employment contracts and CVs on top of the **existing** `hr_assistant` Saudi Labor Law RAG,
-which it reuses unchanged through an adapter. Nothing in `hr_assistant/` is modified by this project.
+## Team Project
+
+**Sanad** is an AI-powered employment contract assistant for the Saudi labor market.
+
+The project was developed as part of the **LLM Zoomcamp** and extends an existing Saudi labor-law RAG system.
+
+---
+
+## Team Members
+
+| Name | Role |
+|------|------|
+| Team Member 1 | |
+| Team Member 2 | |
+| Team Member 3 | |
+| Team Member 4 | |
+
+> Add each team member's name and primary responsibility above.
+
+---
+
+## Project Goal
+
+Sanad helps employees and HR teams understand employment contracts and relevant Saudi labor regulations.
+
+The system can:
+
+- Analyze employment contracts
+- Retrieve relevant Saudi labor regulations
+- Explain contract clauses
+- Compare multiple contracts
+- Analyze CVs
+- Benchmark salaries
+- Provide structured recommendations
+
+---
+
+## Architecture
+
+Sanad is a modular multi-agent system built around one hybrid RAG, which lives in `rag/` inside this
+project. Each layer depends only on the one below it, and the boundaries are enforced by tests:
 
 ```
-frontend (Streamlit)  ->  HTTP  ->  sanad.api  ->  SanadOrchestrator.handle()
-                                                        |- AnalysisAgent           (contract + CV, salary interface)
-                                                        |- ContractComparisonAgent (2-5 contracts, one analysis each)
-                                                        `- RegulatoryRAGAdapter    -> existing hr_assistant RAG -> Qdrant
+frontend/  -> HTTP ->  api/  ->  orchestrator/  ->  agents/  ->  rag/  ->  Qdrant + the labor law
 ```
 
-## Install
+### Main Components
 
-```bash
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt          # add ../hr_assistant/requirements.txt to run the real RAG
-```
+1. **Orchestrator**
+   - Receives the user request
+   - Determines the required workflow
+   - Routes the request to the appropriate components
 
-## Run
+2. **Regulatory Agent**
+   - Retrieves relevant Saudi labor regulations
+   - Uses the existing RAG knowledge base
+   - Provides regulatory context for answers
 
-```bash
-python -m sanad.api                      # API on http://127.0.0.1:8000  (docs at /docs)
-streamlit run frontend/app.py            # UI  on http://localhost:8501
-```
+3. **Contract Analysis Agent**
+   - Extracts information from contracts
+   - Analyzes contract terms
+   - Identifies relevant regulatory considerations
 
-Environment variables: `OPENAI_API_KEY` (optional; enables written answers and evidence-grounded interpretation),
-`SANAD_LEGACY_RAG_DIR`, `SANAD_MAX_UPLOAD_MB`, `SANAD_API_HOST`, `SANAD_API_PORT`, `SANAD_API_MAX_FILES`,
-`SANAD_API_CORS_ORIGINS`, `SANAD_ANALYSIS_LLM_MODEL`. See `sanad/config.py`.
+4. **CV Analysis Agent**
+   - Extracts information from CVs
+   - Analyzes candidate information
+   - Supports salary benchmarking workflows
 
-## Salary benchmarking (real web sources)
+5. **Comparison Agent**
+   - Compares multiple contracts
+   - Identifies differences between contract terms
+   - Produces structured comparison results
 
-Benchmarking is off until it is configured; until then it reports `not_configured` and no market figure is shown.
+6. **Salary Agent**
+   - Extracts salary-related information
+   - Uses available salary sources
+   - Supports market salary benchmarking
 
-```bash
-export SANAD_SALARY_ENABLED=1                 # read the documented sources directly (no API key needed)
-# or, to search the web as well:
-export SANAD_SEARCH_PROVIDER=tavily           # or 'brave'
-export SANAD_SEARCH_API_KEY=...               # also read from TAVILY_API_KEY / BRAVE_API_KEY; never hard-coded
-```
+---
 
-Optional: `SANAD_SALARY_DOMAINS` (allowlist; only these domains are searched, fetched and cited),
-`SANAD_SALARY_SEEDS`, `SANAD_SALARY_TIMEOUT_S` (default 10), `SANAD_SALARY_MAX_RESULTS` (default 8),
-`SANAD_SALARY_CACHE_TTL_S` (default 3600), `SANAD_SALARY_MIN_INTERVAL_S` (default 0.5),
-`SANAD_SALARY_FX_RATES` (e.g. `USD:3.75,EUR:4.05`; a currency without a rate is reported but never converted).
+## RAG System
 
-Source ranking: official Saudi statistics (GASTAT, Saudi Open Data) outrank market sites (SaudiSalary, Paylab),
-which outrank supplementary datasets (Kaggle). LinkedIn is a discovery lead only and never sets a range.
-A result is always a range with its sources, or `insufficient_data` with the reason; sources that disagree are
-reported separately instead of averaged, and base salary is never merged with total compensation.
+There is exactly one RAG implementation, in `rag/`:
 
-## API
-
-| Endpoint | Purpose |
+| File | What it does |
 |---|---|
-| `GET /api/health` | liveness only |
-| `GET /api/config` | upload limits, tasks, roles, comparison priorities |
-| `POST /api/analyze` | multipart upload of PDF/DOCX contracts and CV (+ question, task, priorities, labels, target_job) |
-| `POST /api/ask` | a regulatory question with no documents |
+| `retriever.py` | `HybridRetriever`: dense retrieval (`intfloat/multilingual-e5-base` via Qdrant) fused with BM25. Both score vectors are MinMax-scaled and combined as `0.6 · dense + 0.4 · BM25`; the top 5 articles are returned. |
+| `backend.py` | `answer_policy_question()`: retrieval plus grounded answer generation, with the article references it used. |
+| `adapter.py` | `RegulatoryRAGAdapter`: the only way the agents reach the RAG. Returns typed, traceable results and reports every failure explicitly instead of raising. |
+| `errors.py` | The RAG error taxonomy: a missing dependency, an unreachable Qdrant, a missing collection and an embedding-model failure are distinct, machine-readable codes. |
+| `mapping.py` | Converts retriever and backend output into Sanad's models. Missing fields become `None`; nothing is invented. |
+| `loader.py` | Imports `rag.backend` lazily, once, under a lock — importing it connects to Qdrant and loads the embedding model, so nothing may import it eagerly. |
+| `retrieval_config.py` | Reads the Qdrant URL, collection, embedding model, top-k and fusion weight out of `retriever.py` by parsing it, without importing it. `retriever.py` stays the single source of truth. |
+| `data/labor_law/` | The source PDF and the 249 parsed articles the retriever searches. |
+| `qdrant_storage/` | The Qdrant volume: collections `saudi_labor_law` (live) and `labor_law_ar`. |
 
-Every routed request is answered with an `OrchestratorResult` JSON body. HTTP status follows its `status`:
-200 (success / partial / insufficient_evidence), 422 (invalid_input), 502 (rag_error), 500 (analysis_error);
-uploads rejected at the edge return 400/413/415 with `{"error": {...}}`.
+Importing `rag` is cheap and has no side effects: no Qdrant connection, no embedding model, no OpenAI
+call happens until an adapter call needs one.
 
-## Tests
+---
+
+## Running Sanad
+
+From the project root, with Qdrant running:
 
 ```bash
-PYTHONDONTWRITEBYTECODE=1 python -m pytest -v -rxXs
+python -m api                                   # the service, on http://127.0.0.1:8000
+PYTHONPATH=. streamlit run frontend/app.py      # the interface, on http://localhost:8501
 ```
 
-`tests/integrity` proves the existing RAG is untouched; `tests/live` (skipped by default) needs a running Qdrant,
-the e5 embedding model and the legacy dependencies.
+---
+
+## Running Qdrant
+
+The regulatory RAG reads the `saudi_labor_law` collection from a Qdrant server at the URL declared in
+`rag/retriever.py` (`http://localhost:6333`). The storage lives inside the project, so run this
+**from the project root**:
+
+```bash
+docker run -p 6333:6333 -p 6334:6334 \
+   -v "$(pwd)/rag/qdrant_storage:/qdrant/storage:z" \
+   qdrant/qdrant
+```
+
+This is the only `qdrant_storage` in the project. The collections are not rebuilt by running Sanad;
+to regenerate them from the source PDF, see `eval/notebooks/`.
+
+---
+
+## Configuration
+
+Sanad reads its settings from environment variables (`sanad/config.py`). No key is hard-coded, and no key is
+logged or included in a `repr`. Retrieval settings — the Qdrant URL, collection, embedding model, top-k and
+fusion weight — are deliberately **not** configured here: they are read from the existing
+`rag/retriever.py`, which stays the single source of truth.
+
+### Salary benchmarking
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SANAD_SEARCH_PROVIDER` | `none` | Search provider used to find salary sources: `none`, `tavily` or `brave`. |
+| `SANAD_SEARCH_API_KEY` | unset | API key for that provider. Also read from `TAVILY_API_KEY` / `BRAVE_API_KEY`. |
+| `SANAD_SALARY_ENABLED` | unset (off) | Set to `1`, `true` or `yes` to benchmark from the documented seed sources without a search provider. |
+
+Salary benchmarking runs when `SANAD_SALARY_ENABLED` is set, **or** when `SANAD_SEARCH_PROVIDER` is not `none`
+and an API key is present. With neither, Sanad returns a salary benchmark whose status is `not_configured`:
+no market data is used, and none is estimated or invented.
+
+### Answer generation
+
+| Variable | Default | Effect |
+|---|---|---|
+| `OPENAI_API_KEY` | unset | Passed to the existing RAG's answer generation. Without it, no LLM interpretation runs and regulatory findings stay `requires_review`. |

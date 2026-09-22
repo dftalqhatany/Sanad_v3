@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from sanad.agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent
-from sanad.agents.salary_web import WebSearchSalaryProvider
-from sanad.config import SalarySettings
-from sanad.orchestrator import SanadOrchestrator
+from agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent
+from agents.salary_web import WebSearchSalaryProvider
+from config import SalarySettings
+from orchestrator import SanadOrchestrator
 from tests.api.conftest import DOCX_TYPE, contract_bytes
 from tests.fakes.regulatory_adapter import FakeRegulatoryAdapter
 from tests.fakes.web_search import FakeWebSearchClient
@@ -16,7 +16,7 @@ from tests.fixtures import salary_pages as pages
 pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
-from sanad.api import create_app  # noqa: E402
+from api import create_app  # noqa: E402
 
 SALARY_SETTINGS = SalarySettings(enabled=True, fx_rates_to_sar={"USD": 3.75})
 

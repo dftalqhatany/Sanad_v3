@@ -6,9 +6,9 @@ import json
 
 import pytest
 
-from sanad.config import DocumentProcessingSettings
-from sanad.models.documents import DocumentStatus, ExtractionMethod, FileType, PageStatus, SectionType
-from sanad.parsers import DocumentProcessor
+from config import DocumentProcessingSettings
+from models.documents import DocumentStatus, ExtractionMethod, FileType, PageStatus, SectionType
+from parsers import DocumentProcessor
 from tests.fixtures.documents.builders import (
     contract_text_pdf,
     load_pymupdf,

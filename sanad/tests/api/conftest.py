@@ -7,11 +7,11 @@ import pytest
 pytest.importorskip("fastapi", reason="the Phase 7 API needs fastapi (see sanad/requirements.txt)")
 from fastapi.testclient import TestClient  # noqa: E402
 
-from sanad.agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent  # noqa: E402
-from sanad.api import create_app  # noqa: E402
-from sanad.models.analysis import AnalysisStatus  # noqa: E402
-from sanad.models.orchestration import OrchestratorResult, Route, RoutingDecision  # noqa: E402
-from sanad.orchestrator import SanadOrchestrator  # noqa: E402
+from agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent  # noqa: E402
+from api import create_app  # noqa: E402
+from models.analysis import AnalysisStatus  # noqa: E402
+from models.orchestration import OrchestratorResult, Route, RoutingDecision  # noqa: E402
+from orchestrator import SanadOrchestrator  # noqa: E402
 from tests.fakes.regulatory_adapter import FakeRegulatoryAdapter  # noqa: E402
 from tests.fixtures.documents.builders import docx_from_paragraphs  # noqa: E402
 from tests.fixtures.documents.fixtures import parsed, processor, sample_bytes, sample_paths  # noqa: E402,F401

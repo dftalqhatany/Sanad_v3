@@ -9,16 +9,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from sanad.agents.regulatory import CONTRACT_TOPICS
-from sanad.config import SanadSettings
-from sanad.models.common import ErrorInfo, ResultStatus
-from sanad.models.regulatory import (
+from agents.regulatory import CONTRACT_TOPICS
+from config import SanadSettings
+from models.common import ErrorInfo, ResultStatus
+from models.regulatory import (
     RegulatoryAnswerResult,
     RegulatoryEvidenceResult,
     RegulatoryQuery,
     SourceDocument,
 )
-from sanad.rag.mapping import evidence_from_retriever_result
+from rag.mapping import evidence_from_retriever_result
 
 ENTRY_POINT = "fake RegulatoryRAGAdapter.retrieve_evidence"
 

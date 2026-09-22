@@ -6,19 +6,19 @@ import logging
 
 import pytest
 
-from sanad.agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent, LLMEvidenceInterpreter
-from sanad.agents.comparison_dimensions import duration, monthly_money
-from sanad.config import AnalysisSettings, SanadSettings
-from sanad.extraction import extract_contract
-from sanad.models.analysis import AnalysisStatus, SalaryBenchmark, SalaryObservation, SalarySource
-from sanad.models.comparison import (
+from agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent, LLMEvidenceInterpreter
+from agents.comparison_dimensions import duration, monthly_money
+from config import AnalysisSettings, SanadSettings
+from extraction import extract_contract
+from models.analysis import AnalysisStatus, SalaryBenchmark, SalaryObservation, SalarySource
+from models.comparison import (
     ContractComparisonResult,
     ContractValue,
     DecisionFactor,
     DimensionComparison,
     Recommendation,
 )
-from sanad.models.extraction import FieldStatus
+from models.extraction import FieldStatus
 from tests.fakes.llm import FakeLLMClient
 from tests.fakes.regulatory_adapter import KB_PROBATION_ART_53, FakeRegulatoryAdapter
 

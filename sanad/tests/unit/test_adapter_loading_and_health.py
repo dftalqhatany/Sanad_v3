@@ -8,21 +8,21 @@ import sys
 
 import pytest
 
-from sanad.config import SanadSettings
-from sanad.models import ResultStatus
-from sanad.rag import RegulatoryRAGAdapter
-from sanad.rag.errors import LegacyInterfaceError, LegacyRagNotFoundError
-from sanad.rag.legacy_loader import LegacyRagLoader
-from tests.conftest import LEGACY_MODULE_NAMES, PROJECT_ROOT
+from config import SanadSettings
+from models import ResultStatus
+from rag import RegulatoryRAGAdapter
+from rag.errors import LegacyInterfaceError, LegacyRagNotFoundError
+from rag.loader import RagLoader
+from tests.conftest import RAG_MODULE_NAMES, PROJECT_ROOT
 
 
-def test_importing_sanad_and_building_adapter_has_no_legacy_side_effects():
+def test_importing_sanad_and_building_adapter_has_no_rag_side_effects():
     code = (
         "import sys\n"
-        "from sanad.rag import RegulatoryRAGAdapter\n"
+        "from rag import RegulatoryRAGAdapter\n"
         "adapter = RegulatoryRAGAdapter()\n"
         "heavy = [m for m in sys.modules if m.split('.')[0] in "
-        "('chatbot_backend', 'hybird_search', 'llama_index', 'openai', 'torch', 'transformers')]\n"
+        "('rag.backend', 'rag.retriever', 'llama_index', 'openai', 'torch', 'transformers')]\n"
         "assert not heavy, heavy\n"
         "assert not adapter.is_backend_loaded\n"
         "print('clean')\n"
@@ -40,8 +40,8 @@ def test_settings_read_secrets_from_environment_and_never_print_them():
     assert SanadSettings.from_env({}).openai_api_key is None
 
 
-def test_health_reports_unreachable_qdrant_explicitly(legacy_dir, closed_qdrant_url):
-    adapter = RegulatoryRAGAdapter(SanadSettings(legacy_rag_dir=legacy_dir))
+def test_health_reports_unreachable_qdrant_explicitly(rag_dir, closed_qdrant_url):
+    adapter = RegulatoryRAGAdapter(SanadSettings(rag_dir=rag_dir))
     health = adapter.health(qdrant_url=closed_qdrant_url)
     assert health.status is ResultStatus.ERROR
     assert health.vector_db_reachable is False
@@ -52,8 +52,8 @@ def test_health_reports_unreachable_qdrant_explicitly(legacy_dir, closed_qdrant_
     assert health.retrieval_config.collection == "saudi_labor_law"
 
 
-def test_missing_legacy_directory_is_explicit(tmp_path):
-    adapter = RegulatoryRAGAdapter(SanadSettings(legacy_rag_dir=tmp_path / "missing", openai_api_key="sk-test"))
+def test_missing_rag_directory_is_explicit(tmp_path):
+    adapter = RegulatoryRAGAdapter(SanadSettings(rag_dir=tmp_path / "missing", openai_api_key="sk-test"))
     result = adapter.retrieve_evidence("What is the maximum probation period?")
     assert result.status is ResultStatus.ERROR
     assert result.errors[0].code == "legacy_rag_not_found"
@@ -64,28 +64,31 @@ def test_missing_legacy_directory_is_explicit(tmp_path):
 
 
 @pytest.fixture
-def isolated_legacy_modules(monkeypatch):
-    for name in LEGACY_MODULE_NAMES:
+def isolated_rag_modules(monkeypatch):
+    for name in RAG_MODULE_NAMES:
         monkeypatch.delitem(sys.modules, name, raising=False)
     yield
-    for name in LEGACY_MODULE_NAMES:
+    for name in RAG_MODULE_NAMES:
         sys.modules.pop(name, None)
 
 
-def test_loader_detects_changed_legacy_interface(tmp_path, isolated_legacy_modules):
-    (tmp_path / "hybird_search.py").write_text("x = 1\n", encoding="utf-8")
-    (tmp_path / "chatbot_backend.py").write_text("def get_retriever():\n    return None\n", encoding="utf-8")
+def test_loader_detects_changed_backend_interface(rag_dir, isolated_rag_modules, monkeypatch):
+    """A rag.backend that no longer defines the callables the adapter needs is reported, not used."""
+    module = type(sys)("rag.backend")
+    module.__file__ = str(rag_dir / "backend.py")
+    module.get_retriever = lambda: None  # answer_policy_question and detect_language are gone
+    monkeypatch.setitem(sys.modules, "rag.backend", module)
     cwd, path = os.getcwd(), list(sys.path)
     with pytest.raises(LegacyInterfaceError, match="answer_policy_question"):
-        LegacyRagLoader(tmp_path).load()
-    assert os.getcwd() == cwd and sys.path == path
+        RagLoader(rag_dir).load()
+    assert os.getcwd() == cwd and sys.path == path  # the loader no longer touches cwd or sys.path
 
 
-def test_loader_refuses_a_same_named_module_from_elsewhere(tmp_path, legacy_dir, isolated_legacy_modules, monkeypatch):
-    impostor = tmp_path / "chatbot_backend.py"
+def test_loader_refuses_a_same_named_module_from_elsewhere(tmp_path, rag_dir, isolated_rag_modules, monkeypatch):
+    impostor = tmp_path / "backend.py"
     impostor.write_text("def answer_policy_question(*a, **k): pass\n", encoding="utf-8")
-    module = type(sys)("chatbot_backend")
+    module = type(sys)("rag.backend")
     module.__file__ = str(impostor)
-    monkeypatch.setitem(sys.modules, "chatbot_backend", module)
+    monkeypatch.setitem(sys.modules, "rag.backend", module)
     with pytest.raises(LegacyRagNotFoundError, match="already loaded"):
-        LegacyRagLoader(legacy_dir).load()
+        RagLoader(rag_dir).load()

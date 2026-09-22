@@ -1,16 +1,14 @@
-# Sanad Phase 2 (RAG adapter).
-# The existing RAG keeps its own runtime dependencies in ../hr_assistant/requirements.txt;
-# install those too when you want to run the real RAG (live tests, production).
+# Sanad core.
 pydantic>=2.6
 
 # Phase 3 (document processing: PDF and DOCX only; no image/OCR dependencies in the MVP).
-# PyMuPDF is the PDF library hr_assistant already uses (it pins 1.23.8).
+# PyMuPDF is the PDF library the regulatory knowledge base was built with (1.23.8).
 pymupdf>=1.23.8
 python-docx>=1.1
 
 # tests
 pytest>=8
-# used by the contract tests, which execute the REAL legacy retrieval code (already listed in ../hr_assistant/requirements.txt)
+# used by the contract tests, which execute the REAL retrieval code in rag/retriever.py
 numpy
 rank-bm25
 scikit-learn
@@ -22,5 +20,20 @@ uvicorn>=0.30
 python-multipart>=0.0.9
 httpx>=0.27
 
-# Phase 7 (user interface): Streamlit, as in the existing hr_assistant app. It talks to the API over HTTP only.
+# User interface: Streamlit. It talks to the API over HTTP only.
 streamlit>=1.36
+
+# ---------------------------------------------------------------- RAG runtime (rag/retriever.py, rag/backend.py)
+# Needed to run the real regulatory retrieval:
+# a Qdrant server must be reachable at the URL in rag/retriever.py.
+llama-index
+llama-index-embeddings-huggingface
+llama-index-vector-stores-qdrant
+openai
+
+# ---------------------------------------------------------------- rebuilding the knowledge base (eval/notebooks/)
+# Only needed to re-run process_labor_pdf.ipynb / process_data_vectors.ipynb; not needed to run Sanad.
+transformers==4.37.2
+sentencepiece
+protobuf==3.20.*
+tqdm

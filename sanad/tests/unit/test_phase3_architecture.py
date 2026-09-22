@@ -10,12 +10,12 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DOCUMENT_LAYER_FILES = [
-    *sorted((PROJECT_ROOT / "sanad" / "parsers").rglob("*.py")),
-    *sorted((PROJECT_ROOT / "sanad" / "extraction").rglob("*.py")),
-    PROJECT_ROOT / "sanad" / "models" / "documents.py",
-    PROJECT_ROOT / "sanad" / "models" / "extraction.py",
+    *sorted((PROJECT_ROOT / "parsers").rglob("*.py")),
+    *sorted((PROJECT_ROOT / "extraction").rglob("*.py")),
+    PROJECT_ROOT / "models" / "documents.py",
+    PROJECT_ROOT / "models" / "extraction.py",
 ]
-FORBIDDEN = ("sanad.rag", "chatbot_backend", "hybird_search", "llama_index", "qdrant_client", "openai",
+FORBIDDEN = ("rag", "llama_index", "qdrant_client", "openai",
              "PIL", "pytesseract", "easyocr", "paddleocr", "cv2")  # the MVP has no image uploads and no OCR
 
 
@@ -39,16 +39,16 @@ def test_parsing_and_extracting_loads_no_rag_module():
     code = (
         "import sys\n"
         "sys.modules['PIL'] = None  # Pillow must not be needed\n"
-        "from sanad.config import DocumentProcessingSettings\n"
-        "from sanad.parsers import DocumentProcessor\n"
-        "from sanad.extraction import extract_contract, extract_cv\n"
+        "from config import DocumentProcessingSettings\n"
+        "from parsers import DocumentProcessor\n"
+        "from extraction import extract_contract, extract_cv\n"
         "from tests.fixtures.documents.builders import build_all\n"
         "processor = DocumentProcessor(DocumentProcessingSettings())\n"
         "for name, data in build_all().items():\n"
         "    document = processor.parse_bytes(data, name)\n"
         "    extract_cv(document) if 'cv' in name else extract_contract(document)\n"
-        "roots = ('chatbot_backend', 'hybird_search', 'llama_index', 'qdrant_client', 'openai', 'pytesseract')\n"
-        "loaded = [m for m in sys.modules if m.split('.')[0] in roots or m.startswith('sanad.rag')]\n"
+        "roots = ('llama_index', 'qdrant_client', 'openai', 'pytesseract')\n"
+        "loaded = [m for m in sys.modules if m.split('.')[0] in roots or m.startswith('rag')]\n"
         "assert not loaded, loaded\n"
         "print('clean')\n"
     )
@@ -59,7 +59,7 @@ def test_parsing_and_extracting_loads_no_rag_module():
 
 
 def test_mvp_has_no_standalone_image_parser_ocr_engine_or_image_dependencies():
-    parsers = PROJECT_ROOT / "sanad" / "parsers"
+    parsers = PROJECT_ROOT / "parsers"
     assert not (parsers / "image_parser.py").exists() and not (parsers / "ocr.py").exists()
     for name in ("requirements.txt", "pyproject.toml"):
         path = PROJECT_ROOT / name

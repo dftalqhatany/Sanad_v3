@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from sanad.extraction import values
+from extraction import values
 
 
 def _durations(text, **kwargs):

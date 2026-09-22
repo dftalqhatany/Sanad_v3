@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from sanad.models import ErrorInfo, RegulatoryEvidenceResult, RegulatoryQuery, ResultStatus
+from models import ErrorInfo, RegulatoryEvidenceResult, RegulatoryQuery, ResultStatus
 
 
 def test_query_is_normalised_and_validated():

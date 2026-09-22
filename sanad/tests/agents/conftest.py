@@ -4,7 +4,7 @@ import io
 
 import pytest
 
-from sanad.extraction import extract_contract, extract_cv
+from extraction import extract_contract, extract_cv
 from tests.fakes.regulatory_adapter import FakeRegulatoryAdapter
 from tests.fixtures.documents.builders import docx_from_paragraphs
 from tests.fixtures.documents.fixtures import parsed, processor, sample_bytes, sample_paths  # noqa: F401

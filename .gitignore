@@ -192,8 +192,8 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore.DS_Store
-hr_assistant/qdrant_storage/
+sanad/rag/qdrant_storage/
 
 # Local / generated data
 .DS_Store
-hr_assistant/qdrant_storage/
+sanad/rag/qdrant_storage/

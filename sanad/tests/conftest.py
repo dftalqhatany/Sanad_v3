@@ -1,4 +1,4 @@
-"""Shared fixtures. Tests never write into hr_assistant/ (run with PYTHONDONTWRITEBYTECODE=1)."""
+"""Shared fixtures. Tests never write into rag/ (run with PYTHONDONTWRITEBYTECODE=1)."""
 
 from __future__ import annotations
 
@@ -12,15 +12,15 @@ import pytest
 sys.dont_write_bytecode = True
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = PROJECT_ROOT.parent
-LEGACY_DIR = REPO_ROOT / "hr_assistant"
+REPO_ROOT = PROJECT_ROOT  # the project is the repository now
+RAG_DIR = PROJECT_ROOT / "rag"
 BASELINE_PATH = Path(__file__).parent / "fixtures" / "legacy_rag_baseline.json"
-LEGACY_MODULE_NAMES = ("chatbot_backend", "hybird_search")
+RAG_MODULE_NAMES = ("rag.backend", "rag.retriever")
 
 
 @pytest.fixture(scope="session")
-def legacy_dir() -> Path:
-    return LEGACY_DIR
+def rag_dir() -> Path:
+    return RAG_DIR
 
 
 @pytest.fixture(scope="session")
@@ -30,7 +30,7 @@ def baseline() -> dict:
 
 @pytest.fixture(scope="session")
 def knowledge_base() -> list[dict]:
-    return json.loads((LEGACY_DIR / "data/labor_law/labor_law_parsed.json").read_text(encoding="utf-8"))
+    return json.loads((RAG_DIR / "data/labor_law/labor_law_parsed.json").read_text(encoding="utf-8"))
 
 
 def _closed_local_port() -> int:

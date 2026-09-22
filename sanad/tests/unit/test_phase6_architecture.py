@@ -9,15 +9,15 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-ORCHESTRATOR = PROJECT_ROOT / "sanad" / "orchestrator"
-ORCHESTRATOR_FILES = sorted(ORCHESTRATOR.rglob("*.py")) + [PROJECT_ROOT / "sanad" / "models" / "orchestration.py"]
-AGENT_FILES = sorted((PROJECT_ROOT / "sanad" / "agents").rglob("*.py"))
+ORCHESTRATOR = PROJECT_ROOT / "orchestrator"
+ORCHESTRATOR_FILES = sorted(ORCHESTRATOR.rglob("*.py")) + [PROJECT_ROOT / "models" / "orchestration.py"]
+AGENT_FILES = sorted((PROJECT_ROOT / "agents").rglob("*.py"))
 
 # The Orchestrator must never reach past the abstractions built in Phases 2-5.
-FORBIDDEN_MODULES = ("chatbot_backend", "hybird_search", "llama_index", "qdrant_client", "openai", "rank_bm25",
-                     "sanad.agents.contract_analysis", "sanad.agents.cv_analysis", "sanad.agents.regulatory",
-                     "sanad.agents.interpretation", "sanad.agents.salary", "sanad.agents.comparison_dimensions",
-                     "sanad.agents.recommendation")
+FORBIDDEN_MODULES = ("rag.backend", "rag.retriever", "llama_index", "qdrant_client", "openai", "rank_bm25",
+                     "agents.contract_analysis", "agents.cv_analysis", "agents.regulatory",
+                     "agents.interpretation", "agents.salary", "agents.comparison_dimensions",
+                     "agents.recommendation")
 FORBIDDEN_NAMES = ("HybridRetriever", "QdrantClient", "answer_policy_question", "get_retriever", "complete_json",
                    "OpenAIChatClient", "LLMEvidenceInterpreter", "RegulatoryEvidenceCollector", "build_dimensions",
                    "recommend")
@@ -37,7 +37,7 @@ def _imports(path: Path):
             yield node.module or "", id(node) in top_level
 
 
-def test_orchestrator_does_not_import_the_legacy_rag_an_llm_or_agent_internals():
+def test_orchestrator_does_not_import_the_rag_internals_an_llm_or_agent_internals():
     offenders = [f"{path.name}: {module}" for path in ORCHESTRATOR_FILES for module, _ in _imports(path)
                  if any(module == f or module.startswith(f + ".") for f in FORBIDDEN_MODULES)]
     assert len(ORCHESTRATOR_FILES) >= 5
@@ -46,8 +46,8 @@ def test_orchestrator_does_not_import_the_legacy_rag_an_llm_or_agent_internals()
 
 def test_the_only_rag_import_is_the_existing_adapter_and_it_is_lazy():
     rag_imports = [(path.name, module, top) for path in ORCHESTRATOR_FILES for module, top in _imports(path)
-                   if module == "sanad.rag" or module.startswith("sanad.rag.")]
-    assert rag_imports == [("orchestrator.py", "sanad.rag.adapter", False)]
+                   if module == "rag" or module.startswith("rag.")]
+    assert rag_imports == [("orchestrator.py", "rag.adapter", False)]
 
 
 def test_orchestrator_names_no_retriever_llm_or_agent_internal():
@@ -75,16 +75,16 @@ def test_only_public_component_methods_are_called():
 
 def test_parsing_happens_only_in_the_intake_step():
     users = [path.name for path in ORCHESTRATOR_FILES for module, _ in _imports(path)
-             if module.startswith("sanad.parsers") or module.startswith("sanad.extraction")]
+             if module.startswith("parsers") or module.startswith("extraction")]
     assert set(users) == {"intake.py"}
     agent_users = [path.name for path in AGENT_FILES for module, _ in _imports(path)
-                   if module.startswith("sanad.parsers")]
+                   if module.startswith("parsers")]
     assert not agent_users, agent_users  # agents never parse documents themselves
 
 
 def test_agents_do_not_depend_on_the_orchestrator():
     offenders = [path.name for path in AGENT_FILES for module, _ in _imports(path)
-                 if module.startswith("sanad.orchestrator")]
+                 if module.startswith("orchestrator")]
     assert not offenders, offenders
 
 
@@ -101,20 +101,20 @@ def test_the_orchestrator_knows_nothing_about_the_api_or_the_user_interface():
     for web in ("fastapi", "streamlit", "uvicorn", "flask", "starlette"):
         assert web not in text, web
     offenders = [path.name for path in ORCHESTRATOR_FILES for module, _ in _imports(path)
-                 if module.startswith(("sanad.api", "frontend"))]
+                 if module.startswith(("api", "frontend"))]
     assert not offenders, offenders  # the API depends on the orchestrator, never the other way round
 
 
-def test_running_the_orchestrator_loads_no_legacy_rag_or_openai():
+def test_running_the_orchestrator_loads_no_rag_internals_or_openai():
     code = (
         "import sys, json\n"
-        "from sanad.orchestrator import SanadOrchestrator\n"
-        "assert not [m for m in sys.modules if m.startswith('sanad.rag')], 'importing the orchestrator loaded sanad.rag'\n"
-        "from sanad.agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent\n"
-        "from sanad.models.orchestration import SanadRequest, UploadedDocument\n"
+        "from orchestrator import SanadOrchestrator\n"
+        "assert not [m for m in sys.modules if m.startswith('rag')], 'importing the orchestrator loaded a rag module'\n"
+        "from agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent\n"
+        "from models.orchestration import SanadRequest, UploadedDocument\n"
         "from tests.fakes.regulatory_adapter import FakeRegulatoryAdapter\n"
         "from tests.fixtures.documents.builders import build_all\n"
-        "kb = json.load(open('../hr_assistant/data/labor_law/labor_law_parsed.json', encoding='utf-8'))\n"
+        "kb = json.load(open('rag/data/labor_law/labor_law_parsed.json', encoding='utf-8'))\n"
         "rag = FakeRegulatoryAdapter(kb)\n"
         "analysis = AnalysisAgent(ContractAnalysisAgent(rag))\n"
         "orchestrator = SanadOrchestrator(analysis, ContractComparisonAgent(analysis), rag)\n"
@@ -123,8 +123,9 @@ def test_running_the_orchestrator_loads_no_legacy_rag_or_openai():
         "result = orchestrator.handle(SanadRequest(documents=uploads))\n"
         "assert result.routing.route.value == 'contract_analysis', result.routing.route\n"
         "assert result.analysis.contract_analysis.evidence\n"
-        "roots = ('chatbot_backend', 'hybird_search', 'llama_index', 'qdrant_client', 'openai', 'rank_bm25')\n"
+        "roots = ('llama_index', 'qdrant_client', 'openai', 'rank_bm25')\n"
         "loaded = [m for m in sys.modules if m.split('.')[0] in roots]\n"
+        "loaded += [m for m in ('rag.backend', 'rag.retriever') if m in sys.modules]\n"
         "assert not loaded, loaded\n"
         "print('clean')\n"
     )

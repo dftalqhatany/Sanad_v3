@@ -1,7 +1,7 @@
 """Raw failures of the existing RAG become explicit, specific error codes (original details kept)."""
 
-from sanad.rag.errors import InvalidLegacyOutputError, LegacyInterfaceError, LegacyRagNotFoundError, classify_exception
-from tests.fakes.legacy_stubs import foreign_exception
+from rag.errors import InvalidLegacyOutputError, LegacyInterfaceError, LegacyRagNotFoundError, classify_exception
+from tests.fakes.infra_stubs import foreign_exception
 
 COLLECTION = "saudi_labor_law"
 URL = "http://localhost:6333"

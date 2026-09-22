@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from sanad.tools.web_search import WebSearchError, WebSearchResult, domain_of
+from tools.web_search import WebSearchError, WebSearchResult, domain_of
 
 
 @dataclass
