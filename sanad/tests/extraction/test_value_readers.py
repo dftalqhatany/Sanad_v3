@@ -73,6 +73,29 @@ def test_dates(text, iso, calendar, note):
         assert note in reading.notes
 
 
+@pytest.mark.parametrize("text, iso, raw_prefix", [
+    ("31/10/2027 (01/06/1449 H)", "2027-10-31", "31/10/2027"),
+    ("Start Date: 01/06/1449H (31/10/2027)", "2027-10-31", "01/06/1449H"),
+])
+def test_paired_gregorian_and_hijri_dates_merge_into_one_reading(text, iso, raw_prefix):
+    """A Gregorian date written together with its Hijri equivalent in parentheses is two
+    representations of one event, not two competing dates: it must read as a single candidate,
+    normalised from the Gregorian side, with the Hijri text kept in a note rather than lost."""
+    [reading] = values.find_dates(text)
+    assert reading.value["iso_date"] == iso
+    assert reading.value["calendar"] == "gregorian"
+    assert reading.raw.startswith(raw_prefix)
+    assert any("Hijri" in note for note in reading.notes)
+
+
+def test_two_unrelated_gregorian_dates_are_not_merged():
+    """Only a Hijri/Gregorian *pair* is folded together; two ordinary Gregorian dates - a real
+    conflict, or a genuine range - are read as two separate candidates exactly as before."""
+    readings = values.find_dates("from 01/01/2025 to 30/06/2025")
+    assert len(readings) == 2
+    assert [r.value["calendar"] for r in readings] == ["gregorian", "gregorian"]
+
+
 def test_hours_and_days():
     hours = [(r.value["hours"], r.value["period"]) for r in values.find_hours("8 hours per day, 40 hours per week")]
     assert hours == [(8, "day"), (40, "week")]

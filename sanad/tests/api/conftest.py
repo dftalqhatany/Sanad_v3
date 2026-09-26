@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent  # noqa: E402
 from api import create_app  # noqa: E402
+from config import SalarySettings  # noqa: E402
 from models.analysis import AnalysisStatus  # noqa: E402
 from models.orchestration import OrchestratorResult, Route, RoutingDecision  # noqa: E402
 from orchestrator import SanadOrchestrator  # noqa: E402
@@ -70,7 +71,10 @@ def real_orchestrator(knowledge_base) -> SanadOrchestrator:
 
 @pytest.fixture
 def client(real_orchestrator) -> TestClient:
-    return TestClient(create_app(real_orchestrator))
+    # Explicit, unconfigured salary settings: this fixture must not depend on the developer's own
+    # .env (e.g. SANAD_SALARY_ENABLED=1 set for real salary benchmarking) - "the default client has
+    # benchmarking off" is a property of the test, not of whatever happens to be in the environment.
+    return TestClient(create_app(real_orchestrator, salary_settings=SalarySettings()))
 
 
 @pytest.fixture

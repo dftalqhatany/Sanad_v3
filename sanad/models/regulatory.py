@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 from models.common import ErrorInfo, ResultStatus
 
@@ -85,6 +85,14 @@ class RegulatoryEvidence(BaseModel):
     legacy_reference: dict[str, Any] | None = Field(
         default=None, description="The reference dict exactly as answer_policy_question returned it."
     )
+
+    @computed_field(description="`score` as a whole percentage, for display. This is a SIMILARITY score - how "
+                                "closely the retrieved article matches the query - and never a statement about "
+                                "how correct the answer is. Derived, not stored: the single source of truth "
+                                "stays `score`.")
+    @property
+    def similarity_percentage(self) -> int:
+        return round(self.score * 100)
 
 
 class RetrievalConfig(BaseModel):

@@ -29,7 +29,12 @@ def test_contract_analysis_runs_through_the_existing_rag(adapter, infra, parsed,
     assert adapter.is_backend_loaded and "rag.retriever" in sys.modules
     assert set(infra.collections) == {"saudi_labor_law"}  # the existing collection, read only
     assert infra.dense_queries  # every agent question reached the existing dense retriever
-    assert len(infra.dense_queries) == sum(len(check.questions) for check in result.regulatory_checks)
+    # Field-level questions plus one question per clause that maps to an existing topic. Both levels
+    # go through the same rag.retriever dense path: there is no second retriever to count.
+    field_questions = sum(len(check.questions) for check in result.regulatory_checks)
+    clause_questions = sum(len(c.queries) for c in result.clause_checks)
+    assert clause_questions > 0  # the clause layer really reached the existing RAG
+    assert len(infra.dense_queries) == field_questions + clause_questions
     assert infra.llm_calls == []  # retrieve_evidence never calls the legacy answer LLM
 
     probation = result.finding("probation_period")

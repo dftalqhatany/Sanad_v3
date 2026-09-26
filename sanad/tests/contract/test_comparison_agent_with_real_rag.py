@@ -32,7 +32,9 @@ def test_two_and_three_contracts_run_through_the_existing_rag(adapter, infra, pa
 
     assert result.status is AnalysisStatus.SUCCESS
     assert len(result.contracts) == len(contracts)
-    questions = [sum(len(c.questions) for c in entry.contract_analysis.regulatory_checks) for entry in result.contracts]
+    questions = [sum(len(c.questions) for c in entry.contract_analysis.regulatory_checks)
+                 + sum(len(c.queries) for c in entry.contract_analysis.clause_checks)
+                 for entry in result.contracts]
     assert len(infra.dense_queries) == sum(questions)  # each contract analysed individually through the existing RAG
     assert set(infra.collections) == {"saudi_labor_law"} and infra.llm_calls == []
     for entry in result.contracts:

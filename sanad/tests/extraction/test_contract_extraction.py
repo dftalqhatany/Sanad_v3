@@ -72,7 +72,13 @@ def test_english_contract_fields(parsed, fixture):
     assert result.termination_terms.status is FOUND
     assert result.termination_terms.value[0].heading == "Termination"
     assert result.termination_terms.value[0].text.startswith("This contract may be terminated")
-    assert result.fields_with_status(NOT_FOUND) == ["contract_duration", "total_salary"]
+    # Exhaustive on purpose: any field that stops being read shows up here. The narrative-only
+    # fields are listed because this fixture is a labeled contract that does not state them - it
+    # states one notice period for the whole contract, not one per phase.
+    assert result.fields_with_status(NOT_FOUND) == [
+        "contract_duration", "total_salary", "net_salary", "notice_period_during_probation",
+        "notice_period_after_confirmation", "weekly_rest", "in_hand_salary", "benefits",
+    ]
     assert_provenance(result, document)
 
 

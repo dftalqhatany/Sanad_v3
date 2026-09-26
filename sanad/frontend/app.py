@@ -36,8 +36,13 @@ OFFLINE_CONFIG = {
     "allowed_file_types": [".pdf", ".docx"], "max_file_size_mb": 20, "max_files": 6, "max_contracts": 5,
     "comparison_priorities": [], "answer_generation_enabled": False, "salary_benchmarking_enabled": False,
 }
+# Sanad has three primary workflows. Salary Benchmark is not one of them: it is reused inside Analyze
+# Contract (a contract's own analysis already carries its salary benchmark) and inside Compare
+# Contracts (as one of the compared dimensions) - see frontend/ui.py. Its service call just below and
+# the backend task it maps to are both kept exactly as they were; only this standalone entry point is
+# gone.
 NAV = (("home", "nav.home", "home"), ("ask", "nav.ask", "ask"), ("analyze", "nav.analyze", "analyze"),
-       ("compare", "nav.compare", "compare"), ("salary", "nav.salary", "salary"))
+       ("compare", "nav.compare", "compare"))
 SECONDARY_NAV = (("help", "nav.help", "book"), ("settings", "nav.settings", "settings"))
 
 theme.page_config()

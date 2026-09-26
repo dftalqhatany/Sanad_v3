@@ -270,30 +270,39 @@ def test_document_fact_evidence_and_interpretation_are_kept_apart(contract_en, f
 
 
 # --------------------------------------------------------------------------- LLM interpretation (mocked)
-def test_grounded_llm_compliant_verdict_is_accepted(contract_en, fake_rag):
+def test_grounded_llm_compliant_verdict_is_never_promoted_to_a_field_level_status(contract_en, fake_rag):
+    """Stage 4 hardening: even a fully grounded, quote-verified LLM 'compliant' reading is demoted to
+    REQUIRES_REVIEW at the field level. `interpretation.assessment`/`grounded` still record what the
+    interpreter proposed and verified, for a human reviewer; only the deterministic clause-level
+    ClauseLegalFinding may ever set status to COMPLIANT/NON_COMPLIANT (see agents/legal_rules.py)."""
     llm = FakeLLMClient(grounded_probation_verdict("compliant", "ninety (90) days"))
     result = ContractAnalysisAgent(fake_rag, LLMEvidenceInterpreter(llm)).analyze(contract_en)
 
     finding = result.finding("probation_period")
-    assert finding.status is FindingStatus.COMPLIANT
+    assert finding.status is FindingStatus.REQUIRES_REVIEW
+    assert finding.interpretation.assessment is FindingStatus.COMPLIANT  # the interpreter's own proposal, kept
     assert finding.interpretation.grounded and finding.interpretation.model == "fake-llm"
     assert finding.interpretation.evidence_quotes[0].verified and finding.interpretation.evidence_quotes[0].language == "ar"
     assert [e.article_number for e in finding.regulatory_evidence] == [53]
     assert finding.explanation.startswith("Agent interpretation (LLM")
+    assert any("does not accept a compliance verdict at the field level" in note for note in finding.notes)
     assert result.interpreter == "llm:fake-llm"
-    others = [f for f in result.findings if f.field != "probation_period"]
-    assert not {f.status for f in others} & COMPLIANCE_LABELS
+    assert not {f.status for f in result.findings} & COMPLIANCE_LABELS
 
 
-def test_grounded_llm_non_compliant_verdict_is_accepted(make_contract, fake_rag):
+def test_grounded_llm_non_compliant_verdict_is_never_promoted_to_a_field_level_status(make_contract, fake_rag):
+    """Same hardening as above, for a 'non_compliant' proposal."""
     llm = FakeLLMClient(grounded_probation_verdict("non_compliant", "200 days"))
     _, contract = make_contract(["Probation Period: 200 days"])
     result = ContractAnalysisAgent(fake_rag, LLMEvidenceInterpreter(llm)).analyze(contract)
 
     finding = result.finding("probation_period")
-    assert finding.status is FindingStatus.NON_COMPLIANT
-    assert finding.assessment.startswith("Appears inconsistent")
+    assert finding.status is FindingStatus.REQUIRES_REVIEW
+    assert finding.interpretation.assessment is FindingStatus.NON_COMPLIANT  # the interpreter's own proposal, kept
+    assert finding.assessment.startswith("Requires human review")
+    assert any("does not accept a compliance verdict at the field level" in note for note in finding.notes)
     assert result.status is AnalysisStatus.SUCCESS
+    assert not {f.status for f in result.findings} & COMPLIANCE_LABELS
 
 
 @pytest.mark.parametrize("change, reason", [

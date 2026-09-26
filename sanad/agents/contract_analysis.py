@@ -1,12 +1,22 @@
 """Contract Analysis Agent.
 
+Two parallel outputs are produced from the same segmented clauses, and only one of them may ever
+carry a compliant/non_compliant verdict:
+
+  * findings (field-level, this module's own workflow below): informational only. An optional
+    interpreter (none by default, or an evidence-grounded LLM) may propose a reading, but that
+    reading is never surfaced as this finding's `status` - see the note in `_finding()`.
+  * clause_findings (Stage 3, agents.legal_rules.build_clause_legal_finding): the ONLY source of a
+    deterministic COMPLIANT/NON_COMPLIANT verdict, computed purely by comparing a ContractFact to a
+    LegalRule read from the existing RAG - never an LLM's opinion.
+
 Workflow (per contract):
   ContractExtraction (Phase 3 facts + provenance)
     -> fields that are present (found / ambiguous) and have a regulatory topic
     -> focused questions per topic
     -> RegulatoryRAGAdapter.retrieve_evidence()  (existing RAG, the only regulatory source)
     -> relevance check on the retrieved Arabic article text
-    -> interpretation (none by default, or an evidence-grounded LLM)
+    -> interpretation (none by default, or an evidence-grounded LLM; informational only, see above)
     -> ContractAnalysisResult with explicit statuses
 
 Rules that are never broken:
@@ -14,6 +24,8 @@ Rules that are never broken:
   * missing or irrelevant evidence is INSUFFICIENT_EVIDENCE - never non-compliant
   * ambiguous contract values are REQUIRES_REVIEW - never sent to an interpreter
   * an unavailable RAG is RAG_ERROR with 'error' findings - never a successful analysis
+  * a field-level finding (`findings`) never carries COMPLIANT/NON_COMPLIANT - even a grounded LLM
+    reading is demoted to REQUIRES_REVIEW; only `clause_findings` may carry those two statuses
 """
 
 from __future__ import annotations
@@ -35,7 +47,10 @@ from agents.regulatory import (
     RegulatoryEvidenceSource,
     RegulatoryTopic,
     TopicEvidence,
+    retrieval_ineligibility,
+    topic_for_clause,
 )
+from agents.legal_rules import build_clause_legal_finding, linked_field_for_clause
 from agents.salary import SalaryBenchmarkProvider, UnavailableSalaryBenchmarkProvider, build_salary_provider
 from agents.shared import fact_from_field, label, status_counts
 from config import AnalysisSettings, SalarySettings, SanadSettings
@@ -74,6 +89,7 @@ class ContractAnalysisAgent:
         salary_provider: SalaryBenchmarkProvider | None = None,
         topics: tuple[RegulatoryTopic, ...] = CONTRACT_TOPICS,
         max_evidence_per_topic: int = 6,
+        max_clause_checks: int = 60,
     ) -> None:
         self.evidence_source = evidence_source
         self.interpreter = interpreter or NoInterpreter()
@@ -81,6 +97,7 @@ class ContractAnalysisAgent:
         self.topics = topics
         self.topic_by_field = {name: topic for topic in topics for name in topic.fields}
         self.max_evidence_per_topic = max_evidence_per_topic
+        self.max_clause_checks = max_clause_checks
 
     @classmethod
     def from_settings(
@@ -151,6 +168,9 @@ class ContractAnalysisAgent:
             if topic.name in needed:
                 topic_evidence[topic.name] = collector.collect(topic, needed[topic.name])
 
+        clause_checks = self._clause_checks(contract, collector)
+        clause_findings = self._clause_legal_findings(contract, clause_checks)
+
         interpretation_errors: list[ErrorInfo] = []
         findings = [
             self._finding(position, name, field, facts, topic_evidence, interpretation_errors)
@@ -178,12 +198,54 @@ class ContractAnalysisAgent:
             status_counts=counts,
             findings=findings,
             regulatory_checks=[item.check for item in topic_evidence.values()],
+            clause_checks=clause_checks,
+            clause_findings=clause_findings,
             evidence=list(collector.registry.values()),
             interpreter=self.interpreter.name,
             salary_benchmark=salary,
             warnings=warnings,
             errors=errors,
         )
+
+    def _clause_checks(self, contract: ContractExtraction, collector: RegulatoryEvidenceCollector) -> list:
+        """Regulatory evidence for each segmented clause, through the existing adapter hook.
+
+        Evidence only. No clause is labelled compliant or non-compliant here: that needs rule
+        semantics this stage does not implement, and guessing would be worse than waiting.
+        """
+        checks = []
+        for clause in contract.clauses[: self.max_clause_checks]:
+            reason = retrieval_ineligibility(clause, self.topics)
+            topic = topic_for_clause(clause, self.topics)
+            if reason is not None:
+                # The segmenter could not confidently classify this clause from its own words - a
+                # common shape for a short table row or bilingual fragment (see extraction/clauses.py
+                # and the Stage 4.1 linkage report) - but the same section_id/table_id provenance
+                # Stage 1 already stamped on a field's source may still identify exactly one field
+                # this clause states. That is not a guess about the clause's subject: it is the same
+                # structural check Stage 3 uses to attach a ContractFact (see
+                # agents.legal_rules.linked_field_for_clause), so a clause recovered this way is only
+                # ever asked about the one topic its own linked field would already be checked
+                # against anyway - nothing here asks about a topic the clause was not shown to state.
+                linked_field = linked_field_for_clause(clause, contract)
+                topic = self.topic_by_field.get(linked_field) if linked_field else None
+                if topic is None:
+                    checks.append(collector.skip_clause(clause, reason))  # preserved, never queried
+                    continue
+            checks.append(collector.collect_for_clause(clause, topic))
+        return checks
+
+    def _clause_legal_findings(self, contract: ContractExtraction, clause_checks: list) -> list:
+        """Stage 3: each clause compared, deterministically, against a structured legal rule.
+
+        One entry per clause, same order as clause_checks (they are built from the same
+        contract.clauses[: self.max_clause_checks] slice, so the two lists always line up).
+        """
+        clauses = contract.clauses[: self.max_clause_checks]
+        return [
+            build_clause_legal_finding(position, clause, check, contract, self.topics)
+            for position, (clause, check) in enumerate(zip(clauses, clause_checks), 1)
+        ]
 
     def _finding(self, position: int, name: str, field: ExtractedField, facts: dict[str, DocumentFact],
                  topic_evidence: dict[str, TopicEvidence], interpretation_errors: list[ErrorInfo]) -> AnalysisFinding:
@@ -207,6 +269,14 @@ class ContractAnalysisAgent:
                               f"'{label(name)}' is recorded as a document fact. Sanad's MVP performs no regulatory "
                               "check for this field.")
 
+        if field.status is FieldStatus.NOT_APPLICABLE:
+            # The extraction itself found explicit contract language saying this field does not apply
+            # (e.g. "not subject to a probationary period"). That is a document fact, not silence, so
+            # it is never sent to the RAG and never a compliance question - same principle as NOT_FOUND
+            # above, for the opposite reason (the contract *did* address it, and ruled it out).
+            return self._make(base, FindingStatus.NOT_APPLICABLE,
+                              f"The contract explicitly states that '{label(name)}' does not apply here "
+                              f"('{fact.raw_value or fact.source_text or ''}'). No regulatory question was asked for it.")
         evidence = topic_evidence[topic.name]
         if evidence.check.status == "error":
             codes = ", ".join(sorted({e.code for e in evidence.check.errors}))
@@ -238,17 +308,27 @@ class ContractAnalysisAgent:
                 cited_evidence_ids=[ref.evidence_id for ref in evidence.relevant], notes=[exc.message],
             )
         status = interpretation.assessment
-        if status in (FindingStatus.COMPLIANT, FindingStatus.NON_COMPLIANT) and not interpretation.grounded:
+        demoted_note = None
+        if status in (FindingStatus.COMPLIANT, FindingStatus.NON_COMPLIANT):
+            # A field-level interpretation - grounded or not - is never allowed to decide compliance
+            # here. `interpretation.assessment` above still records what the interpreter proposed
+            # (for a reviewer to read); compliant/non_compliant may only come from the deterministic
+            # clause-level comparison in `clause_findings` (agents.legal_rules.build_clause_legal_finding).
+            demoted_note = (f"The interpreter's own reading was '{status.value}', but Sanad does not accept a "
+                            "compliance verdict at the field level; see clause_findings for the deterministic "
+                            "legal-rule comparison, if one applies to this field.")
             status = FindingStatus.REQUIRES_REVIEW
-        if status not in (FindingStatus.COMPLIANT, FindingStatus.NON_COMPLIANT, FindingStatus.REQUIRES_REVIEW,
-                          FindingStatus.INSUFFICIENT_EVIDENCE):
+        elif status not in (FindingStatus.REQUIRES_REVIEW, FindingStatus.INSUFFICIENT_EVIDENCE):
             status = FindingStatus.REQUIRES_REVIEW
         cited = [ref for ref in evidence.relevant if ref.evidence_id in interpretation.cited_evidence_ids]
         prefix = ("Agent interpretation (LLM, verified against the quoted evidence): "
                   if interpretation.grounded else "Agent note: ")
+        notes = list(interpretation.notes)
+        if demoted_note:
+            notes.append(demoted_note)
         return self._make(base, status, prefix + interpretation.explanation,
                           regulatory_evidence=cited or evidence.relevant, interpretation=interpretation,
-                          notes=list(interpretation.notes))
+                          notes=notes)
 
     @staticmethod
     def _make(base: dict, status: FindingStatus, explanation: str, **extra) -> AnalysisFinding:

@@ -205,6 +205,31 @@ def test_nothing_configured_means_no_benchmarking():
     assert isinstance(injected, WebSearchSalaryProvider)
 
 
+# --------------------------------------------------------------------------- SANAD_SALARY_ENABLED from the environment
+# Regression guard: a real deployment sets SANAD_SALARY_ENABLED via a .env file / process environment,
+# never by constructing SalarySettings() directly (that path was already covered above). This proves
+# the actual production entry point - SalarySettings.from_env() reading the *string* "1" out of an
+# environment mapping, exactly as config._dotenv()/_environment() hand it over - enables benchmarking
+# and wires the real WebSearchSalaryProvider, not just that the dataclass field itself works.
+def test_sanad_salary_enabled_from_the_environment_is_honoured():
+    settings = SalarySettings.from_env({"SANAD_SALARY_ENABLED": "1"})
+    assert settings.enabled is True and settings.is_configured is True
+    assert isinstance(build_salary_provider(settings), WebSearchSalaryProvider)
+
+
+def test_sanad_salary_enabled_accepts_true_and_yes_too():
+    for value in ("true", "yes", "TRUE", "1"):
+        assert SalarySettings.from_env({"SANAD_SALARY_ENABLED": value}).enabled is True
+    for value in ("0", "false", "no", "", "  "):
+        assert SalarySettings.from_env({"SANAD_SALARY_ENABLED": value}).enabled is False
+
+
+def test_without_sanad_salary_enabled_in_the_environment_benchmarking_stays_off():
+    settings = SalarySettings.from_env({})
+    assert settings.enabled is False and settings.is_configured is False
+    assert isinstance(build_salary_provider(settings), UnavailableSalaryBenchmarkProvider)
+
+
 def test_the_contract_analysis_carries_the_benchmark(contract, fake_rag):
     agent = ContractAnalysisAgent(fake_rag, salary_provider=provider(pages.PAYLAB, pages.SAUDI_SALARY))
     benchmark = agent.analyze(contract).salary_benchmark

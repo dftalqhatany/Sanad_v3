@@ -20,6 +20,7 @@ from models.common import ErrorInfo, ResultStatus
 from models.documents import DocumentStatus
 from models.extraction import (
     CertificationEntry,
+    ClauseType,
     EducationEntry,
     ExperienceEntry,
     FieldCandidate,
@@ -29,6 +30,7 @@ from models.extraction import (
     MoneyValue,
     SourceSpan,
 )
+from models.legal_rules import ComparisonResult, ContractFact, LegalRule, RuleType
 from models.regulatory import RegulatoryEvidence
 
 DISCLAIMER = (
@@ -58,6 +60,7 @@ def require_explicit_errors(status: AnalysisStatus, errors: list[ErrorInfo]) -> 
 class FindingStatus(str, Enum):
     COMPLIANT = "compliant"
     NON_COMPLIANT = "non_compliant"
+    AMBIGUOUS = "ambiguous"  # the CONTRACT itself is conflicting or unclear (Stage 3)
     REQUIRES_REVIEW = "requires_review"
     INSUFFICIENT_EVIDENCE = "insufficient_evidence"
     NOT_APPLICABLE = "not_applicable"
@@ -169,6 +172,80 @@ class RegulatoryCheck(BaseModel):
 
 
 # --------------------------------------------------------------------------- interpretation
+class ClauseCheck(BaseModel):
+    """One segmented clause, the regulatory question asked about it, and what the existing RAG returned.
+
+    This is the Stage 2 output: it records what the contract says and which articles are relevant to
+    it. It deliberately carries no verdict - no compliant/non-compliant field exists here - because
+    deciding that needs rule semantics (minimum / maximum / conditional) that Stage 2 does not have.
+    Stage 3's ClauseLegalFinding (below) is what turns this into a verdict.
+
+    The chain clause -> query -> evidence is kept whole so a later stage can cite it without
+    re-running retrieval.
+    """
+
+    clause_id: str
+    clause_type: ClauseType
+    clause_name: str | None = None
+    clause_text: str = Field(description="The contract's own words, copied from the document.")
+    source_span: SourceSpan | None = None
+    regulatory_topic: str | None = Field(
+        default=None, description="Name of the existing RegulatoryTopic, or None when no existing topic fits.")
+    queries: list[str] = Field(default_factory=list, description="Questions sent to the existing RAG for this clause.")
+    retrieval_queries: list[str] = Field(
+        default_factory=list, description="The composed text the retriever actually saw (question + clause).")
+    check: RegulatoryCheck | None = Field(
+        default=None, description="The existing RegulatoryCheck record for this clause's retrieval.")
+    evidence: list[EvidenceReference] = Field(default_factory=list)
+
+    @property
+    def page_number(self) -> int | None:
+        return self.source_span.page_number if self.source_span else None
+
+
+class ClauseLegalFinding(BaseModel):
+    """Stage 3: one segmented clause, compared deterministically against a structured legal rule.
+
+    `status` is always the output of agents.legal_rules.compare_fact_to_rule() plus the small set of
+    deterministic rules in agents.legal_rules._status_from_comparison() - never an LLM's opinion. An
+    optional LLM may later be plugged in to word `explanation`, but nothing is allowed to touch
+    `status`, `comparison` or `legal_rule` after they are computed (see agents/legal_rules.py).
+    """
+
+    finding_id: str
+    clause_id: str
+    clause_type: ClauseType
+    clause_name: str | None = None
+    clause_text: str = Field(description="The contract's own words, copied from the document.")
+    field: str | None = Field(default=None, description="The Stage 1 extracted field this clause's fact came from.")
+    topic: str | None = Field(default=None, description="Name of the existing RegulatoryTopic checked, if any.")
+    status: FindingStatus
+    assessment: str
+    explanation: str
+    contract_fact: ContractFact | None = None
+    legal_rule: LegalRule | None = None
+    comparison: ComparisonResult | None = None
+    regulatory_evidence: list[EvidenceReference] = Field(default_factory=list)
+    source_span: SourceSpan | None = None
+    confidence: Literal["high", "medium", "low"] | None = None
+    notes: list[str] = Field(default_factory=list)
+
+    @property
+    def page_number(self) -> int | None:
+        return self.source_span.page_number if self.source_span else None
+
+    @model_validator(mode="after")
+    def _status_rules(self):
+        if self.status in (FindingStatus.COMPLIANT, FindingStatus.NON_COMPLIANT):
+            if self.legal_rule is None or self.legal_rule.rule_type is RuleType.UNKNOWN:
+                raise ValueError(f"{self.clause_id}: a compliance label requires a deterministic legal rule")
+            if self.contract_fact is None or self.contract_fact.normalized_value is None:
+                raise ValueError(f"{self.clause_id}: a compliance label requires a numeric contract fact")
+            if self.comparison is None:
+                raise ValueError(f"{self.clause_id}: a compliance label requires a recorded comparison")
+        return self
+
+
 class EvidenceQuote(BaseModel):
     evidence_id: str
     quote: str
@@ -189,6 +266,15 @@ class Interpretation(BaseModel):
 
 
 class AnalysisFinding(BaseModel):
+    """Stage 4 field-level finding: informational only.
+
+    `status` here is NEVER allowed to be COMPLIANT/NON_COMPLIANT (enforced by the validator below,
+    unconditionally) - those two statuses are reserved for the deterministic clause-level
+    ClauseLegalFinding (see models.analysis.ClauseLegalFinding and agents.legal_rules). An LLM may
+    still populate `interpretation` with its own read of the evidence for a human reviewer, but that
+    reading is never promoted to this finding's `status`.
+    """
+
     finding_id: str
     field: str
     topic: str | None = None
@@ -207,16 +293,28 @@ class AnalysisFinding(BaseModel):
         if (self.status is FindingStatus.NOT_FOUND) != (extraction is FieldStatus.NOT_FOUND):
             raise ValueError(f"{self.field}: 'not_found' is used exactly when the field was not found in the extraction")
         if self.status in (FindingStatus.COMPLIANT, FindingStatus.NON_COMPLIANT):
-            if extraction is not FieldStatus.FOUND:
-                raise ValueError(f"{self.field}: a compliance label requires a found contract value")
-            if not self.regulatory_evidence:
-                raise ValueError(f"{self.field}: a compliance label requires regulatory evidence")
-            if self.interpretation is None or not self.interpretation.grounded:
-                raise ValueError(f"{self.field}: a compliance label requires a grounded interpretation")
-            if not any(q.verified for q in self.interpretation.evidence_quotes):
-                raise ValueError(f"{self.field}: a compliance label requires a verified evidence quote")
-        if self.status is FindingStatus.NOT_APPLICABLE and self.topic is not None:
-            raise ValueError(f"{self.field}: 'not_applicable' is only used for fields without a regulatory topic")
+            # Stage 4 hardening: a compliance label is never valid on a field-level AnalysisFinding,
+            # regardless of grounding or evidence. Compliant/non_compliant may only be produced by the
+            # deterministic clause-level comparison (agents.legal_rules.build_clause_legal_finding),
+            # recorded separately on ClauseLegalFinding / ContractAnalysisResult.clause_findings. An
+            # LLM interpretation of a field is informational only (see agents/contract_analysis.py).
+            raise ValueError(
+                f"{self.field}: a compliance label is not allowed on a field-level finding; "
+                "compliant/non_compliant must come only from the deterministic clause-level "
+                "ClauseLegalFinding, never from field-level interpretation."
+            )
+        if self.status is FindingStatus.NOT_APPLICABLE:
+            # Two distinct reasons are both legitimate: (a) structural - this field has no regulatory
+            # topic at all, so Sanad never checks it; or (b) the CONTRACT ITSELF explicitly says the
+            # field does not apply (e.g. "not subject to a probationary period"), regardless of whether
+            # the field normally has a topic. Anything else claiming not_applicable is rejected.
+            structural = self.topic is None
+            stated_by_the_contract = extraction is FieldStatus.NOT_APPLICABLE
+            if not (structural or stated_by_the_contract):
+                raise ValueError(
+                    f"{self.field}: 'not_applicable' requires either no regulatory topic for this field, "
+                    "or the contract's own extraction already marking the field not applicable"
+                )
         if self.status is FindingStatus.INSUFFICIENT_EVIDENCE and self.topic is None:
             raise ValueError(f"{self.field}: 'insufficient_evidence' requires a regulatory topic")
         return self
@@ -339,6 +437,15 @@ class ContractAnalysisResult(_AnalysisResult):
     document_type: Literal["employment_contract"] = "employment_contract"
     findings: list[AnalysisFinding] = Field(default_factory=list)
     regulatory_checks: list[RegulatoryCheck] = Field(default_factory=list)
+    clause_checks: list[ClauseCheck] = Field(
+        default_factory=list,
+        description="Segmented clauses with the regulatory evidence retrieved for each. Stage 2 output: "
+                    "evidence only, never a compliance conclusion.")
+    clause_findings: list[ClauseLegalFinding] = Field(
+        default_factory=list,
+        description="Stage 3 output: each eligible clause compared, deterministically, against a structured "
+                    "legal rule derived from its retrieved evidence. One entry per segmented clause, in the "
+                    "same order as clause_checks.")
     evidence: list[EvidenceReference] = Field(default_factory=list)
     interpreter: str = "none"
     salary_benchmark: SalaryBenchmark | None = None

@@ -210,6 +210,31 @@ def metric(label: str, value: str, note: str = "") -> None:
                 f'<span class="sanad-metric__value">{value}</span>{extra}</div>', unsafe_allow_html=True)
 
 
+def glance(mark: str, tone: str, title: str, note: str = "") -> None:
+    """A large round status mark (e.g. checkmark/exclamation) with a title and short note beside it -
+    the "at a glance" summary the person reads before opening a detail section. tone: good | caution |
+    bad | neutral."""
+    safe = tone if tone in ("good", "caution", "bad", "neutral") else "neutral"
+    extra = f'<span class="sanad-glance__note">{note}</span>' if note else ""
+    st.markdown(
+        f'<div class="sanad-glance"><span class="sanad-glance__mark sanad-glance__mark--{safe}">{mark}</span>'
+        f'<span class="sanad-glance__text"><span class="sanad-glance__title">{title}</span>{extra}</span></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def kv_table(rows: list[tuple[str, str]], *, total_index: int | None = None) -> None:
+    """A compact label/value table (Compensation, and anywhere else a vertical stack of metric cards
+    would waste space for a short list of figures). `total_index`, if given, draws a rule above that
+    row and bolds it, for a running total shown after its components."""
+    cells = []
+    for index, (label, value) in enumerate(rows):
+        row_class = ' class="sanad-kv--total"' if index == total_index else ""
+        cells.append(f'<tr{row_class}><td class="sanad-kv__label">{label}</td>'
+                     f'<td class="sanad-kv__value">{value}</td></tr>')
+    st.markdown(f'<table class="sanad-kv"><tbody>{"".join(cells)}</tbody></table>', unsafe_allow_html=True)
+
+
 def progress_panel(title: str, items: list[str], done: bool = False) -> None:
     """The loading state. Steps are only ticked once the whole request has come back."""
     mark = "&#10003;" if done else "&#9675;"
@@ -445,6 +470,36 @@ div[class*="st-key-svc_"]:hover, div[class*="st-key-opt_"]:hover {{
 .sanad-source__tier {{ color: var(--muted); font-size: .8rem; }}
 .sanad-list {{ margin: 0; padding-inline-start: 18px; color: var(--muted); }}
 .sanad-list li {{ margin-bottom: 7px; }}
+
+/* ------------------------------------------------------------------ section tabs (Analyze Contract) */
+[data-baseweb="tab-list"] {{ gap: 6px; border-bottom: 1px solid var(--border); }}
+[data-baseweb="tab-list"] button {{ padding: 10px 20px !important; font-weight: 650 !important;
+  color: var(--muted) !important; border-radius: var(--r-sm) var(--r-sm) 0 0 !important; }}
+[data-baseweb="tab-list"] button:hover {{ color: var(--g700) !important; background: var(--g50); }}
+[data-baseweb="tab-list"] button[aria-selected="true"] {{ color: var(--g700) !important; background: var(--g50); }}
+[data-baseweb="tab-highlight"] {{ background-color: var(--g600) !important; height: 3px !important; }}
+[data-baseweb="tab-border"] {{ background-color: var(--border) !important; height: 1px !important; }}
+
+/* ------------------------------------------------------------------ compact key/value rows (Compensation) */
+.sanad-kv {{ width: 100%; border-collapse: collapse; margin: 2px 0; }}
+.sanad-kv td {{ padding: 10px 2px; border-bottom: 1px solid var(--border); font-size: .95rem; color: var(--ink); }}
+.sanad-kv td.sanad-kv__label {{ color: var(--muted); }}
+.sanad-kv td.sanad-kv__value {{ text-align: end; font-weight: 650; white-space: nowrap; }}
+.sanad-kv tr.sanad-kv--total td {{ border-top: 2px solid var(--g600); border-bottom: none; font-weight: 700;
+  color: var(--g700); padding-top: 13px; }}
+.sanad-kv tr:last-child td {{ border-bottom: none; }}
+
+/* ------------------------------------------------------------------ glance badge (large ✓/!/✕ status mark) */
+.sanad-glance {{ display: flex; align-items: center; gap: 12px; }}
+.sanad-glance__mark {{ width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center;
+  justify-content: center; font-size: 1.25rem; font-weight: 700; flex: 0 0 auto; }}
+.sanad-glance__mark--good {{ background: var(--g100); color: var(--g700); }}
+.sanad-glance__mark--caution {{ background: var(--gold100); color: var(--gold700); }}
+.sanad-glance__mark--bad {{ background: var(--danger-soft); color: var(--danger); }}
+.sanad-glance__mark--neutral {{ background: var(--neutral-soft); color: var(--muted); }}
+.sanad-glance__text {{ display: flex; flex-direction: column; }}
+.sanad-glance__title {{ font-weight: 650; color: var(--ink); font-size: .92rem; }}
+.sanad-glance__note {{ color: var(--muted); font-size: .8rem; margin-top: 2px; }}
 
 .sanad-footer {{ display: flex; align-items: center; gap: 11px; margin-top: 40px; padding-top: 16px;
   border-top: 1px solid var(--border); }}

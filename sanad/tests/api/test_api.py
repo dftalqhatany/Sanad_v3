@@ -15,6 +15,7 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from api import create_app  # noqa: E402
+from config import SanadSettings  # noqa: E402
 
 
 def files_for(*names: str, data: dict[str, bytes] | None = None) -> list:
@@ -36,8 +37,18 @@ def test_health_and_config_do_no_work(client, real_orchestrator):
     assert config["allowed_file_types"] == [".pdf", ".docx"] and config["max_contracts"] == 5
     assert config["max_file_size_mb"] == 20.0 and config["max_files"] == 6
     assert "contract_comparison" in config["tasks"] and "basic_salary" in config["comparison_priorities"]
-    assert config["answer_generation_enabled"] is False
     assert real_orchestrator.rag.calls == []  # nothing was analysed to answer these
+
+
+def test_config_reports_whether_a_server_key_is_configured(real_orchestrator):
+    """answer_generation_enabled mirrors the server's own key. Pinned with explicit settings so the
+    assertion does not depend on whatever .env happens to hold on the machine running the tests."""
+    without = TestClient(create_app(real_orchestrator, settings=SanadSettings(openai_api_key=None)))
+    with_key = TestClient(create_app(real_orchestrator, settings=SanadSettings(openai_api_key="sk-test")))
+
+    assert without.get("/api/config").json()["answer_generation_enabled"] is False
+    assert with_key.get("/api/config").json()["answer_generation_enabled"] is True
+    assert real_orchestrator.rag.calls == []
 
 
 # --------------------------------------------------------------------------- routed requests
