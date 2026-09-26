@@ -3,6 +3,9 @@
 Environment variables
 ---------------------
 OPENAI_API_KEY         Key passed to the RAG's answer generation (never hard-coded, never logged).
+                       Read from the process environment, or from a .env file beside this module when
+                       the variable is not already set. The real environment always wins, so a
+                       deployment that exports the variable is never overridden by a stray file.
 SANAD_RAG_DIR          Location of the RAG package (retriever, backend, knowledge base, qdrant_storage).
                        Defaults to ./rag inside this project.
 SANAD_LEGACY_RAG_DIR   Deprecated alias for SANAD_RAG_DIR, from when the RAG lived in a separate
@@ -23,6 +26,40 @@ from typing import Literal
 
 PROJECT_ROOT = Path(__file__).resolve().parent  # the Sanad project root: this file sits in it
 DEFAULT_RAG_DIR = PROJECT_ROOT / "rag"  # retriever, backend, knowledge base and qdrant_storage
+DOTENV_PATH = PROJECT_ROOT / ".env"
+
+
+def _dotenv(path: Path) -> dict[str, str]:
+    """`KEY=value` lines from a .env file. Missing or unreadable file -> {}; nothing is logged.
+
+    Deliberately tiny and dependency-free. Blank lines, comments and lines without '=' are skipped,
+    and surrounding quotes are stripped so KEY="value" and KEY=value behave the same.
+    """
+    values: dict[str, str] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return values
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, _, value = line.partition("=")
+        name = name.strip()
+        if name:
+            values[name] = value.strip().strip('"').strip("'")
+    return values
+
+
+def _environment(env: Mapping[str, str] | None) -> Mapping[str, str]:
+    """What the settings read: an explicit mapping when given (tests), else os.environ over .env.
+
+    os.environ is applied last, so an exported variable always beats the file. Nothing is written
+    back into os.environ, so importing this module has no side effect on the process.
+    """
+    if env is not None:
+        return env
+    return {**_dotenv(DOTENV_PATH), **os.environ}
 
 
 @dataclass(frozen=True)
@@ -54,7 +91,7 @@ class SanadSettings:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "SanadSettings":
-        env = os.environ if env is None else env
+        env = _environment(env)
         return cls(
             rag_dir=Path(env.get("SANAD_RAG_DIR") or env.get("SANAD_LEGACY_RAG_DIR") or DEFAULT_RAG_DIR),
             openai_api_key=(env.get("OPENAI_API_KEY") or None),
@@ -106,7 +143,7 @@ class DocumentProcessingSettings:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "DocumentProcessingSettings":
-        env = os.environ if env is None else env
+        env = _environment(env)
         kwargs: dict = {}
         if env.get("SANAD_MAX_UPLOAD_MB"):
             kwargs["max_file_size_bytes"] = int(float(env["SANAD_MAX_UPLOAD_MB"]) * 1024 * 1024)
@@ -142,7 +179,7 @@ class AnalysisSettings:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "AnalysisSettings":
-        env = os.environ if env is None else env
+        env = _environment(env)
         kwargs: dict = {}
         if env.get("SANAD_ANALYSIS_LLM_MODEL"):
             kwargs["llm_model"] = env["SANAD_ANALYSIS_LLM_MODEL"]
@@ -178,7 +215,7 @@ class ApiSettings:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "ApiSettings":
-        env = os.environ if env is None else env
+        env = _environment(env)
         kwargs: dict = {}
         if env.get("SANAD_API_MAX_FILES"):
             kwargs["max_files"] = int(env["SANAD_API_MAX_FILES"])
@@ -253,13 +290,13 @@ class SalarySettings:
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> "SalarySettings":
-        env = os.environ if env is None else env
+        env = _environment(env)
         provider = (env.get("SANAD_SEARCH_PROVIDER") or "none").strip().lower()
         if provider not in ("none", "tavily", "brave"):
             raise ValueError(f"unknown SANAD_SEARCH_PROVIDER '{provider}'")
         key = env.get("SANAD_SEARCH_API_KEY") or env.get(f"{provider.upper()}_API_KEY") or None
         kwargs: dict = {"provider": provider, "api_key": key or None,
-                        "enabled": (env.get("SANAD_SALARY_ENABLED") or "").strip() in ("1", "true", "yes")}
+                        "enabled": (env.get("SANAD_SALARY_ENABLED") or "").strip().lower() in ("1", "true", "yes")}
         if env.get("SANAD_SALARY_DOMAINS"):
             kwargs["allowed_domains"] = tuple(d.strip().lower() for d in env["SANAD_SALARY_DOMAINS"].split(",") if d.strip())
         if env.get("SANAD_SALARY_SEEDS"):

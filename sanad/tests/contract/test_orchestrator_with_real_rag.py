@@ -79,6 +79,7 @@ def test_uploaded_contracts_are_compared_end_to_end(adapter, infra):
     assert result.routing.route is Route.CONTRACT_COMPARISON and result.status is AnalysisStatus.SUCCESS
     assert len(result.comparison.contracts) == 2
     per_contract = [sum(len(c.questions) for c in entry.contract_analysis.regulatory_checks)
+                    + sum(len(c.queries) for c in entry.contract_analysis.clause_checks)
                     for entry in result.comparison.contracts]
     assert len(infra.dense_queries) == sum(per_contract)  # one analysis per contract, no repeats
     assert result.comparison.recommendation.preferred_contract_id == "contract_1"

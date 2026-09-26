@@ -7,10 +7,19 @@ machine-readable ErrorInfo objects. The original exception type and message are 
 
 from __future__ import annotations
 
+import re
 from enum import Enum
 from urllib.parse import urlparse
 
 from models.common import ErrorInfo
+
+# An OpenAI key must never travel out of the process in an error. Third-party libraries sometimes echo
+# the credential they were given back in their exception text, so every message built here is scrubbed.
+_SECRET = re.compile(r"\b(sk|rk|pk)-[A-Za-z0-9_\-]{8,}", re.IGNORECASE)
+
+
+def redact_secrets(text: str) -> str:
+    return _SECRET.sub("<redacted>", text)
 
 
 class RagErrorCode(str, Enum):
@@ -186,11 +195,11 @@ def classify_exception(
     return ErrorInfo(
         code=code.value,
         stage=stage,
-        message=f"{_MESSAGES.get(code, code.value)}. {detail}"[:1500],
+        message=redact_secrets(f"{_MESSAGES.get(code, code.value)}. {detail}")[:1500],
         exception_type=qualified_name(exc),
-        exception_chain=[f"{qualified_name(e)}: {e}"[:500] for e in chain],
+        exception_chain=[redact_secrets(f"{qualified_name(e)}: {e}")[:500] for e in chain],
     )
 
 
 def make_error(code: RagErrorCode, stage: str, message: str) -> ErrorInfo:
-    return ErrorInfo(code=code.value, stage=stage, message=message)
+    return ErrorInfo(code=code.value, stage=stage, message=redact_secrets(message))

@@ -355,6 +355,50 @@ def _iso(year: int, month: int, day: int) -> str | None:
         return None
 
 
+def _merge_calendar_pairs(text: str, positions: list[tuple[int, int]], readings: list[Reading]) -> list[Reading]:
+    """A Gregorian date is very often written together with its Hijri equivalent right after it in
+    parentheses ("31/10/2027 (01/06/1449 H)") - a standard convention in Saudi contracts, not a
+    document-specific quirk. Each half is, on its own, an ordinary DD/MM/YYYY reading (that is how
+    `add` above tells them apart: a Hijri-range year, or an explicit "H"/"هـ" marker), so without this
+    step the two would be reported as two competing dates for the same field and forced to AMBIGUOUS.
+    They are two representations of one event, not a conflict: when a Hijri-calendar reading sits
+    immediately next to a Gregorian one, with nothing but whitespace or a parenthesis between them,
+    they are folded into a single reading. The Gregorian side supplies the normalised value (the
+    Hijri calendar is not converted here); both raw spans are kept, so neither source text is lost.
+    A genuine conflict - two Gregorian dates, or two Hijri dates, written in the same text - is left
+    untouched and still resolves to ambiguous, exactly as before.
+    """
+    order = sorted(range(len(readings)), key=lambda i: positions[i][0])
+    merged: list[Reading] = []
+    used: set[int] = set()
+    for position, idx in enumerate(order):
+        if idx in used:
+            continue
+        reading = readings[idx]
+        if position + 1 < len(order):
+            next_idx = order[position + 1]
+            other = readings[next_idx]
+            calendars = {(reading.value or {}).get("calendar"), (other.value or {}).get("calendar")}
+            if reading.value and other.value and calendars == {"gregorian", "hijri"}:
+                a_start, a_end = positions[idx]
+                b_start, b_end = positions[next_idx]
+                gap = text[a_end:b_start] if a_end <= b_start else None
+                if gap is not None and re.fullmatch(r"[\s(]*", gap):
+                    gregorian, hijri = (reading, other) if reading.value["calendar"] == "gregorian" else (other, reading)
+                    span_start, span_end = min(a_start, b_start), max(a_end, b_end)
+                    combined_raw = text[span_start:span_end]
+                    merged_value = {**gregorian.value, "raw": combined_raw}
+                    merged.append(Reading(merged_value, combined_raw,
+                                          [*gregorian.notes,
+                                           f"paired with its Hijri equivalent '{hijri.raw}'; both refer to the same date"]))
+                    used.add(idx)
+                    used.add(next_idx)
+                    continue
+        merged.append(reading)
+        used.add(idx)
+    return merged
+
+
 def find_dates(text: str) -> list[Reading]:
     ascii_text = to_ascii_digits(text)
     readings: list[Reading] = []
@@ -387,6 +431,8 @@ def find_dates(text: str) -> list[Reading]:
         else:
             iso, notes = None, ["day/month order cannot be determined"]
         add(match.start(), match.end(), iso, notes, year)
+
+    readings = _merge_calendar_pairs(text, taken, readings)
 
     matched, tokens = tokenize(text)
     for i, token in enumerate(tokens):

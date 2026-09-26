@@ -82,8 +82,10 @@ def _target_job(title: str, skills: str) -> str | None:
     return json.dumps({"title": title.strip(), "required_skills": wanted})
 
 
-def _result_footer(ctx: Ctx, result: dict[str, Any], label_key: str, reset: Callable[[], None]) -> None:
-    ui.caveats_panel(result, ctx.lang)
+def _result_footer(ctx: Ctx, result: dict[str, Any], label_key: str, reset: Callable[[], None], *,
+                   show_caveats: bool = True) -> None:
+    if show_caveats:
+        ui.caveats_panel(result, ctx.lang)
     ui.documents_panel(result, ctx.lang)
     ui.raw_panel(result, ctx.lang)
     if st.button(ctx.s(label_key), type="secondary"):
@@ -98,26 +100,25 @@ def _store(key: str, response) -> bool:
 
 
 # --------------------------------------------------------------------------- home
+# Sanad has exactly three primary workflows. Salary benchmarking is not a fourth one: it is reused
+# inside Analyze Contract (Compensation) and inside Compare Contracts (a compared dimension) - see
+# frontend/ui.py - so it has no standalone card here and no entry of its own in the sidebar.
 SERVICES = (
     ("ask", "ask", "home.ask_title", "home.ask_desc", "home.ask_cta"),
     ("analyze", "analyze", "home.analyze_title", "home.analyze_desc", "home.analyze_cta"),
     ("compare", "compare", "home.compare_title", "home.compare_desc", "home.compare_cta"),
-    ("salary", "salary", "home.salary_title", "home.salary_desc", "home.salary_cta"),
 )
 
 
 def home(ctx: Ctx) -> None:
     theme.hero(ctx.s("home.hero_title"), ctx.s("app.tagline"), ctx.s("home.hero_sub"))
     theme.section(ctx.s("home.services"), ctx.s("home.trust"))
-    rows = [SERVICES[:2], SERVICES[2:]]
-    for row in rows:
-        columns = st.columns(2, gap="large")
-        for column, (page, icon_name, title, desc, cta) in zip(columns, row):
-            with column, _container(f"svc_{page}"):
-                theme.card_body(icon_name, ctx.s(title), ctx.s(desc))
-                if st.button(ctx.s(cta), key=f"go_{page}", type="primary", use_container_width=True):
-                    ctx.go(page)
-        theme.spacer(16)
+    columns = st.columns(len(SERVICES), gap="large")
+    for column, (page, icon_name, title, desc, cta) in zip(columns, SERVICES):
+        with column, _container(f"svc_{page}"):
+            theme.card_body(icon_name, ctx.s(title), ctx.s(desc))
+            if st.button(ctx.s(cta), key=f"go_{page}", type="primary", use_container_width=True):
+                ctx.go(page)
 
 
 # --------------------------------------------------------------------------- ask
@@ -261,11 +262,11 @@ def _analysis_results(ctx: Ctx, response) -> None:
         return
     result = response.result
     if not ui.unavailable_state(result, ctx.lang):
-        ui.request_banner(result, ctx.lang)
-        ui.analysis_panel(result, ctx.lang)
-        ui.cv_panel(result, ctx.lang)
-        ui.salary_panel(result, ctx.lang)
-    _result_footer(ctx, result, "analyze.new", _reset_analyze)
+        # The dashboard below already shows the request outcome (Contract Overview's status pill),
+        # the compliance/compensation/salary-benchmark summary, and the service's own notes (the
+        # Findings tab) - so the caveats panel in the shared footer would only repeat them.
+        ui.contract_dashboard(result, ctx.lang)
+    _result_footer(ctx, result, "analyze.new", _reset_analyze, show_caveats=False)
 
 
 def _cv_only(ctx: Ctx) -> None:
@@ -377,85 +378,24 @@ def _comparison_results(ctx: Ctx, response) -> None:
         return
     result = response.result
     if not ui.unavailable_state(result, ctx.lang):
-        ui.request_banner(result, ctx.lang)
-        ui.comparison_panel(result, ctx.lang)
-        ui.analysis_panel(result, ctx.lang)  # shown when a single contract was analysed instead
-        ui.cv_panel(result, ctx.lang)
+        if result.get("comparison"):
+            ui.request_banner(result, ctx.lang)
+            ui.comparison_panel(result, ctx.lang)
+            ui.cv_panel(result, ctx.lang)
+        else:
+            # Only one contract was actually comparable: show its own full, correctly-sourced
+            # analysis dashboard (same Contract Overview / Legal Compliance / Compensation / Salary
+            # Benchmark / Findings tabs as Analyze Contract, plus CV Compatibility when present) -
+            # never the old flat analysis_panel, which reads field-level findings only.
+            ui.contract_dashboard(result, ctx.lang)
     _result_footer(ctx, result, "compare.new", _reset_compare)
 
 
-# --------------------------------------------------------------------------- salary
-def _reset_salary() -> None:
-    for key in ("sal_result", "sal_contract", "sal_job", "sal_city", "sal_years"):
-        st.session_state.pop(key, None)
-
-
-def salary(ctx: Ctx) -> None:
-    theme.page_header(ctx.s("salary.title"), ctx.s("salary.sub"), "salary")
-    if _offline_notice(ctx):
-        return
-
-    response = st.session_state.get("sal_result")
-    theme.steps([ctx.s("salary.step1"), ctx.s("salary.step2")], 2 if response is not None else 1)
-
-    if response is not None:
-        _salary_results(ctx, response)
-        return
-
-    if not ctx.config.get("salary_benchmarking_enabled", True):
-        theme.banner("caution", ctx.s("salary.unavailable"))
-
-    contract = _uploader(ctx, "sal_contract", ctx.s("salary.contract_label"))
-    st.caption(ctx.s("salary.contract_note"))
-    if contract is not None:
-        theme.file_chip(contract.name, len(contract.getvalue()) / 1024)
-
-    fields = st.columns(3)
-    job_title = fields[0].text_input(f"{ctx.s('salary.job_title')} ({ctx.s('common.optional')})",
-                                     help=ctx.s("salary.job_title_help"), key="sal_job")
-    city = fields[1].text_input(f"{ctx.s('salary.city')} ({ctx.s('common.optional')})", key="sal_city")
-    years = fields[2].text_input(f"{ctx.s('salary.years')} ({ctx.s('common.optional')})", key="sal_years")
-
-    if contract is None:
-        theme.spacer(8)
-        theme.empty_state(ctx.s("state.no_file"), ctx.s("salary.contract_note"), "salary")
-        return
-
-    theme.spacer(8)
-    if not st.button(ctx.s("salary.cta"), type="primary"):
-        return
-    if years.strip() and not _is_number(years):
-        theme.banner("caution", ctx.s("salary.years"), ctx.s("state.unsupported_body"))
-        return
-    placeholder = st.empty()
-    with placeholder.container():
-        theme.progress_panel(ctx.s("salary.progress"), [ctx.s("analyze.p1"), ctx.s("analyze.p2"), ctx.s("analyze.p4")])
-    st.session_state["sal_result"] = ctx.benchmark([_as_upload(contract, "contract")], job_title=job_title,
-                                                   city=city, years=years)
-    placeholder.empty()
-    st.rerun()
-
-
-def _is_number(value: str) -> bool:
-    try:
-        float(value.strip())
-    except ValueError:
-        return False
-    return True
-
-
-def _salary_results(ctx: Ctx, response) -> None:
-    if not response.ok and response.result is None:
-        theme.empty_state(ctx.s("state.offline"), response.message, "shield")
-        if st.button(ctx.s("action.start_over"), type="secondary"):
-            _reset_salary()
-            st.rerun()
-        return
-    result = response.result
-    if not ui.unavailable_state(result, ctx.lang):
-        ui.request_banner(result, ctx.lang)
-        ui.salary_panel(result, ctx.lang, heading=False)
-    _result_footer(ctx, result, "salary.new", _reset_salary)
+# Salary Benchmark has no standalone page any more: it is reused inside Analyze Contract's own
+# result dashboard (a "Salary Benchmark" section within Compensation - see
+# ui.contract_dashboard / ui.salary_panel) and inside Compare Contracts (a compared dimension - see
+# ui.comparison_panel). Its backend agent, provider, configuration and API task are all unchanged;
+# only this dedicated wizard page and its sidebar/home entry points were removed.
 
 
 # --------------------------------------------------------------------------- help and settings
@@ -505,4 +445,4 @@ def settings_page(ctx: Ctx, default_url: str) -> None:
     st.checkbox(ctx.s("settings.show_raw"), key="show_raw")
 
 
-PAGES = {"home": home, "ask": ask, "analyze": analyze, "compare": compare, "salary": salary, "help": help_page}
+PAGES = {"home": home, "ask": ask, "analyze": analyze, "compare": compare, "help": help_page}

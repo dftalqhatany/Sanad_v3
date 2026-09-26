@@ -10,7 +10,7 @@ from agents import AnalysisAgent, ContractAnalysisAgent, ContractComparisonAgent
 from agents.comparison_dimensions import duration, monthly_money
 from config import AnalysisSettings, SanadSettings
 from extraction import extract_contract
-from models.analysis import AnalysisStatus, SalaryBenchmark, SalaryObservation, SalarySource
+from models.analysis import AnalysisStatus, FindingStatus, SalaryBenchmark, SalaryObservation, SalarySource
 from models.comparison import (
     ContractComparisonResult,
     ContractValue,
@@ -80,8 +80,17 @@ def test_two_contracts_are_each_analysed_once_by_the_analysis_agent(offers, spy,
     assert [c.contract_id for c in result.contracts] == ["contract_1", "contract_2"]
     assert [c.label for c in result.contracts] == ["offer_a.docx", "offer_b.docx"]
     assert [c.contract_analysis.document_id for c in result.contracts] == ["doc_offer_a", "doc_offer_b"]
-    per_contract_questions = sum(len(check.questions) for check in result.contracts[0].contract_analysis.regulatory_checks)
-    assert len(fake_rag.calls) == per_contract_questions * 2  # each contract's own regulatory analysis
+    # Each contract is analysed exactly once, at both levels. Field-level questions carry no clause
+    # text; clause-level ones carry the clause, which is how the existing adapter's
+    # evidence_for_clause() composes its query.
+    analysis = result.contracts[0].contract_analysis
+    per_contract_questions = sum(len(check.questions) for check in analysis.regulatory_checks)
+    per_contract_clause_queries = sum(len(c.queries) for c in analysis.clause_checks)
+    field_calls = [c for c in fake_rag.calls if c.contract_context is None]
+    clause_calls = [c for c in fake_rag.calls if c.contract_context is not None]
+    assert len(field_calls) == per_contract_questions * 2
+    assert len(clause_calls) == per_contract_clause_queries * 2
+    assert all(call.clause_name for call in clause_calls)
     assert result.status is AnalysisStatus.SUCCESS
     assert ContractComparisonResult.model_validate_json(result.model_dump_json()).model_dump() == result.model_dump()
 
@@ -230,7 +239,12 @@ def test_normalisation_is_exact_arithmetic_only():
 
 
 # --------------------------------------------------------------------------- compliance, CV, salary benchmark
-def test_grounded_non_compliance_makes_a_difference_and_is_a_high_risk(offers, make_contract, fake_rag):
+def test_field_level_llm_verdicts_never_drive_the_comparison_compliance_risk(offers, make_contract, fake_rag):
+    """Stage 4 hardening: the field-level interpreter's own compliance opinion must never reach a
+    comparison risk. Only the deterministic clause-level legal-rule comparison (agents.legal_rules,
+    exposed as ContractAnalysisResult.clause_findings) may ever produce a compliant/non_compliant
+    verdict; a scripted 'non_compliant' answer from the field-level LLM interpreter here must have no
+    effect on the 'compliance' dimension or on the comparison's risks."""
     def respond(payload):
         fact = payload["contract_fact"]
         evidence_ids = [e["evidence_id"] for e in payload["evidence"]]
@@ -244,17 +258,15 @@ def test_grounded_non_compliance_makes_a_difference_and_is_a_high_risk(offers, m
 
     _, long_probation = make_contract([*[l for l in OFFER_A if not l.startswith("Probation")], "Probation Period: 200 days"])
     analysis = AnalysisAgent(ContractAnalysisAgent(fake_rag, LLMEvidenceInterpreter(FakeLLMClient(respond))))
-    result = ContractComparisonAgent(analysis).compare([offers["a"][1], long_probation])
 
+    probation_finding = analysis.analyze(contract=long_probation).contract_analysis.finding("probation_period")
+    assert probation_finding.interpretation.assessment.value == "non_compliant"  # the LLM's own proposed reading
+    assert probation_finding.status is FindingStatus.REQUIRES_REVIEW  # never promoted to a field-level verdict
+
+    result = ContractComparisonAgent(analysis).compare([offers["a"][1], long_probation])
     compliance = result.dimension("compliance")
-    assert compliance.comparable and compliance.best_contract_ids == ["contract_1"]
-    violation = values_by_contract(compliance)["contract_2"]
-    assert violation.value == 1 and violation.finding_ids and "Probation Period: 200 days" in violation.source_texts
-    [risk] = [r for r in result.risks if r.code == "non_compliant_finding"]
-    assert (risk.contract_id, risk.severity, risk.field) == ("contract_2", "high", "probation_period")
-    assert "المادة الثالثة والخمسون" in risk.message
-    assert result.recommendation.preferred_contract_id == "contract_1"
-    assert "compliance" in {f.dimension for f in result.recommendation.decision_factors}
+    assert compliance.comparable and compliance.best_contract_ids == ["contract_1", "contract_2"]
+    assert not any(r.code == "non_compliant_finding" for r in result.risks)
 
 
 def test_without_interpreter_compliance_ties_and_says_why(offers, spy):

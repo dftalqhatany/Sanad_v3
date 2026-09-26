@@ -162,7 +162,11 @@ class SanadOrchestrator:
         return self.analysis_agent.analyze(contract=item.contract, cv=cv, use_contract_job_title=cv is not None)
 
     def _ask(self, question: str) -> RegulatoryAnswerResult:
-        """Adapter only: the RAG answer pipeline when a key is configured, otherwise retrieval."""
+        """Adapter only: the RAG answer pipeline when a key is configured, otherwise retrieval.
+
+        The key is the server's own (SanadSettings.openai_api_key, from OPENAI_API_KEY or .env). The
+        adapter reads it from settings; it is never taken from the request and never leaves the process.
+        """
         if self.generate_answers:
             answer = self.regulatory_source.ask(question)
             if not (answer.status is ResultStatus.ERROR and answer.errors[0].code == "missing_api_key"):

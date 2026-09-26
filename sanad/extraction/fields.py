@@ -12,6 +12,60 @@ HIGH_CONFIDENCE_METHODS = {ExtractionMethodName.LABELED_LINE, ExtractionMethodNa
                            ExtractionMethodName.SECTION_CONTENT, ExtractionMethodName.PATTERN}
 
 
+def normalized(value: Any) -> str | None:
+    """Canonical one-line form of an extracted value, for comparison and display.
+
+    Derived only from `value`; it never introduces a fact the document does not state. A field whose
+    value is None (not found / ambiguous) has no normalized form.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return " ".join(value.split()) or None
+    if isinstance(value, list):
+        parts = [n for n in (normalized(item) for item in value) if n]
+        return "; ".join(parts) or None
+    name = type(value).__name__
+    if name == "DurationValue":
+        count = int(value.count) if float(value.count).is_integer() else value.count
+        qualifier = f" {value.qualifier}" if value.qualifier else ""
+        return f"{count}{qualifier} {value.unit}"
+    if name == "DateValue":
+        return value.iso_date or " ".join(value.raw.split())
+    if name in ("MoneyValue", "AllowanceValue"):
+        bits = []
+        if getattr(value, "name", None):
+            bits.append(f"{value.name}:")
+        if getattr(value, "amount", None) is not None:
+            amount = int(value.amount) if float(value.amount).is_integer() else value.amount
+            bits.append(f"{value.currency} {amount}" if value.currency else str(amount))
+        if getattr(value, "percentage", None) is not None:
+            bits.append(f"{value.percentage:g}%")
+        if getattr(value, "period", None):
+            bits.append(value.period)
+        return " ".join(bits) or None
+    if name == "WorkingHoursValue":
+        bits = [f"{h:g} h/{unit}" for h, unit in
+                ((value.hours_per_day, "day"), (value.hours_per_week, "week")) if h is not None]
+        if not bits and value.hours is not None:
+            bits.append(f"{value.hours:g} h")
+        return ", ".join(bits) or None
+    if name == "WorkingDaysValue":
+        bits = []
+        if value.days_per_week is not None:
+            bits.append(f"{value.days_per_week} days/week")
+        if value.days:
+            bits.append(", ".join(value.days))
+        return " (".join(bits) + ")" if len(bits) == 2 else (bits[0] if bits else None)
+    if name == "ContractTypeValue":
+        return value.normalized or " ".join(value.raw.split())
+    if name == "ClauseValue":
+        return " ".join((value.heading or value.text).split())[:120]
+    if name == "ListItem":
+        return " ".join(value.text.split())
+    return None
+
+
 def candidate(value: Any, raw_value: str, source: SourceSpan, notes: Sequence[str] = ()) -> FieldCandidate | None:
     """A reading whose raw value is not literally present in its source text is rejected (no fabrication)."""
     raw_value = raw_value.strip()
@@ -22,6 +76,14 @@ def candidate(value: Any, raw_value: str, source: SourceSpan, notes: Sequence[st
 
 def not_extracted(name: str, reason: str) -> ExtractedField:
     return ExtractedField(name=name, status=FieldStatus.NOT_EXTRACTED, notes=[reason])
+
+
+def not_applicable(name: str, source: SourceSpan, reason: str) -> ExtractedField:
+    """The document explicitly states this topic does not apply - a real, positive fact read from the
+    document, not silence. Unlike not_found/not_extracted, this always carries the source (the
+    statement itself) so the determination stays traceable; it never carries a value."""
+    return ExtractedField(name=name, status=FieldStatus.NOT_APPLICABLE, source_text=source.text,
+                          page_number=source.page_number, sources=[source], notes=[reason])
 
 
 def resolve(
@@ -63,6 +125,7 @@ def resolve(
         status=FieldStatus.FOUND,
         value=value,
         raw_value=first.raw_value,
+        normalized_value=normalized(value),
         source_text=first.source.text,
         page_number=first.source.page_number,
         confidence=confidence,
@@ -78,6 +141,7 @@ def resolve_list(name: str, items: Sequence[Any], sources: Sequence[SourceSpan],
         return ExtractedField(name=name, status=FieldStatus.NOT_FOUND)
     sources = _unique_sources(list(sources))
     return ExtractedField(name=name, status=FieldStatus.FOUND, value=list(items), raw_value=sources[0].text,
+                          normalized_value=normalized(list(items)),
                           source_text=sources[0].text, page_number=sources[0].page_number, confidence="high",
                           sources=sources, notes=list(notes))
 

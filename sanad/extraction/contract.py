@@ -5,7 +5,10 @@ Sources used, in order of confidence:
   * clause sentences containing the field's keyword (or under a heading containing it) - only for
     durations, working hours/days and amounts
   * sections under a termination heading (termination terms)
-Names, dates, job title, location, nationality and contract type are only read from labels.
+  * narrative sentences, via extraction.semantic - appointment letters and ordinary contract prose
+    state the same facts in sentences rather than labels ("You shall be appointed to the position
+    of X"). That path is additive: a value read from a label is never replaced by one read from
+    prose, and it fills fields the label path left empty.
 No legal interpretation happens here.
 """
 
@@ -16,7 +19,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from extraction import values as readers
+from extraction.clauses import ClauseSegmenter
 from extraction.fields import candidate, not_extracted, resolve, resolve_list
+from extraction.semantic import SEMANTIC_FIELDS, SemanticExtractor, detect_negations, sentence_allows
 from extraction.text import (
     LabeledValue,
     contains_keyword,
@@ -34,8 +39,10 @@ from models.extraction import (
     ContractTypeValue,
     DateValue,
     DurationValue,
+    ExtractedField,
     ExtractionMethodName,
     FieldCandidate,
+    FieldStatus,
     MoneyValue,
     SourceSpan,
     WorkingDaysValue,
@@ -61,7 +68,7 @@ class FieldSpec:
 
 CONTRACT_FIELDS: tuple[FieldSpec, ...] = (
     FieldSpec("employee_name", "text", ("employee name", "name of employee", "employee's name", "employee",
-                                        "worker name", "اسم الموظف", "اسم العامل", "الموظف", "العامل")),
+                                        "worker name", "اسم الموظف", "اسم العامل", "الموظف", "العامل", "الاسم")),
     FieldSpec("employer_name", "text", ("employer name", "employer", "company name", "company", "name of employer",
                                         "صاحب العمل", "اسم صاحب العمل", "اسم المنشأة", "المنشأة", "اسم الشركة", "الشركة")),
     FieldSpec("job_title", "text", ("job title", "position", "designation", "occupation", "job", "title of position",
@@ -83,8 +90,14 @@ CONTRACT_FIELDS: tuple[FieldSpec, ...] = (
                                   "الراتب الشهري", "الأجر الشهري"),
               ("basic salary", "base salary", "basic wage", "الراتب الأساسي", "الأجر الأساسي")),
     FieldSpec("total_salary", "money", ("total salary", "gross salary", "total monthly salary", "total compensation",
-                                        "إجمالي الراتب", "الراتب الإجمالي", "إجمالي الأجر", "الأجر الإجمالي"),
-              ("total salary", "gross salary", "إجمالي الراتب", "الراتب الإجمالي")),
+                                        "total monthly wage", "total wage", "monthly wage", "gross wage",
+                                        "إجمالي الراتب", "الراتب الإجمالي", "إجمالي الأجر", "الأجر الإجمالي",
+                                        "إجمالي الأجر الشهري", "الأجر الشهري الإجمالي"),
+              ("total salary", "gross salary", "total monthly wage", "total wage",
+               "إجمالي الراتب", "الراتب الإجمالي", "إجمالي الأجر الشهري")),
+    FieldSpec("net_salary", "money", ("net salary", "net wage", "net pay", "net monthly salary", "net monthly wage",
+                                      "صافي الراتب", "الراتب الصافي", "صافي الأجر", "الأجر الصافي"),
+              ("net salary", "net wage", "net pay", "صافي الراتب", "صافي الأجر")),
     FieldSpec("housing_allowance", "allowance", ("housing allowance", "housing", "بدل السكن", "بدل سكن", "السكن"),
               ("housing allowance", "بدل السكن", "بدل سكن")),
     FieldSpec("transportation_allowance", "allowance", ("transportation allowance", "transport allowance",
@@ -113,17 +126,33 @@ CONTRACT_FIELDS: tuple[FieldSpec, ...] = (
 )
 _TERMINATION_HEADINGS = ("terminat", "انهاء العقد", "فسخ العقد", "انتهاء العقد", "انهاء الخدمه", "انهاء علاقه العمل")
 _OTHER_ALLOWANCE_PREFIXES = ("بدل ",)
-_OTHER_ALLOWANCE_SUFFIX = " allowance"
+_OTHER_ALLOWANCE_SUFFIXES = (" allowance", " allowances")
 _MAX_TEXT_VALUE = 150
 
 
+def _looks_like_allowance_label(keys: set[str]) -> bool:
+    """A generic structural cue - not a FieldSpec alias - that lets a colon-less or bilingual-glued
+    label such as "Total Other Cash Allowances" / "بدل مواصلات" be recognised as a label worth
+    resolving (extraction.text.iter_labeled_values's `is_label`), and also gates the "other
+    allowances" bucket for any labeled value that did not match a known field."""
+    return any(key.startswith(_OTHER_ALLOWANCE_PREFIXES) or key.endswith(_OTHER_ALLOWANCE_SUFFIXES) for key in keys)
+
+
 class ContractExtractor:
-    def __init__(self, fields: tuple[FieldSpec, ...] = CONTRACT_FIELDS) -> None:
+    def __init__(self, fields: tuple[FieldSpec, ...] = CONTRACT_FIELDS,
+                 semantic: SemanticExtractor | None = None,
+                 segmenter: ClauseSegmenter | None = None) -> None:
         self.fields = fields
+        self.semantic = semantic or SemanticExtractor()
+        self.segmenter = segmenter or ClauseSegmenter()
         self._by_label: dict[str, list[FieldSpec]] = {}
         for spec in fields:
             for key in spec.label_keys:
                 self._by_label.setdefault(key, []).append(spec)
+
+    def _is_label(self, text: str) -> bool:
+        keys = label_keys(text)
+        return bool(keys & self._by_label.keys()) or _looks_like_allowance_label(keys)
 
     def extract(self, document: ParsedDocument) -> ContractExtraction:
         if not document.status.has_text:
@@ -134,13 +163,17 @@ class ContractExtractor:
                 errors=[ErrorInfo(code=f"document_{document.status.value}", stage="extraction",
                                   message=f"Fields could not be extracted: {reason}.")],
                 **{spec.name: not_extracted(spec.name, reason) for spec in self.fields},
+                **{name: not_extracted(name, reason) for name in SEMANTIC_FIELDS
+                   if name not in {spec.name for spec in self.fields}},
                 other_allowances=not_extracted("other_allowances", reason),
+                benefits=not_extracted("benefits", reason),
+                probation_status=not_extracted("probation_status", reason),
             )
 
         candidates: dict[str, list[FieldCandidate | None]] = {spec.name: [] for spec in self.fields}
         other_allowances: list[tuple[AllowanceValue, SourceSpan]] = []
         clauses: list[tuple[ClauseValue, SourceSpan]] = []
-        labeled = list(iter_labeled_values(document))
+        labeled = list(iter_labeled_values(document, is_label=self._is_label))
         for item in labeled:
             specs = self._match_label(item)
             for spec in specs:
@@ -154,6 +187,7 @@ class ContractExtractor:
                 if allowance is not None:
                     other_allowances.append(allowance)
 
+        previous_text = ""
         for sentence in iter_sentences(document):
             sentence_key, heading_key = matching_key(sentence.text), matching_key(sentence.heading or "")
             for spec in self.fields:
@@ -162,9 +196,22 @@ class ContractExtractor:
                 in_sentence = any(contains_keyword(sentence_key, k) for k in spec.keyword_keys)
                 in_heading = spec.kind != "money" and spec.kind != "allowance" and any(
                     contains_keyword(heading_key, k) for k in spec.keyword_keys)
-                if in_sentence or in_heading:
-                    source = sentence.source(ExtractionMethodName.CLAUSE_SENTENCE)
-                    candidates[spec.name].extend(self._read(spec, sentence.text, source, from_label=False))
+                if not (in_sentence or in_heading):
+                    continue
+                # A keyword is not enough. "During the period of probation ... 90 days' notice"
+                # contains "probation" but states a notice period; crediting its 90 days to
+                # probation_period is what made that field ambiguous and hid the real 180 days. The
+                # same check also looks at the immediately preceding unit's text: a PDF's own layout
+                # frequently splits one clause ("Deducted at a rate of (9.75%) of the basic wage ..."
+                # / "... plus housing allowance = SAR 1,218.75") across two blank-line-separated
+                # paragraphs, so the disqualifying cue ("Deducted", "9.75%") is not always in the same
+                # sentence as the number it explains.
+                context = f"{previous_text} {sentence.text}" if previous_text else sentence.text
+                if not sentence_allows(spec.name, context):
+                    continue
+                source = sentence.source(ExtractionMethodName.CLAUSE_SENTENCE)
+                candidates[spec.name].extend(self._read(spec, sentence.text, source, from_label=False))
+            previous_text = sentence.text
 
         for section in document.sections:
             if section.section_type in (SectionType.PARAGRAPH, SectionType.LIST_ITEM) and section.title and any(
@@ -182,6 +229,9 @@ class ContractExtractor:
                 fields[spec.name] = self._resolve(spec, candidates[spec.name])
         fields["other_allowances"] = resolve_list(
             "other_allowances", [a for a, _ in other_allowances], [s for _, s in other_allowances])
+        self._merge_semantic(fields, self.semantic.extract_fields(document))
+        self._apply_negations(fields, document)
+        fields["probation_status"] = _derive_probation_status(fields["probation_period"])
 
         warnings = []
         status = ResultStatus.SUCCESS
@@ -189,9 +239,48 @@ class ContractExtractor:
             status = ResultStatus.PARTIAL
             warnings.append("Only part of the document could be read; fields on unread pages may be reported as not found.")
         return ContractExtraction(document_id=document.document_id, filename=document.filename,
-                                  document_status=document.status, status=status, warnings=warnings, **fields)
+                                  document_status=document.status, status=status, warnings=warnings,
+                                  clauses=self.segmenter.segment(document), **fields)
 
     # ------------------------------------------------------------------ helpers
+    @staticmethod
+    def _apply_negations(fields: dict[str, Any], document: ParsedDocument) -> None:
+        """The document explicitly stating a topic does not apply (section 10) outranks both the
+        label and narrative paths for that field: NOT_FOUND/AMBIGUOUS/NOT_EXTRACTED there means those
+        paths could not read a value, not that the topic is silent, and the negation sentence itself
+        is direct positive evidence of the correct answer. A field the label path already resolved to
+        FOUND is left alone - a genuine label-vs-negation conflict is a contradiction to flag for
+        review (Stage 4), not something to silently overwrite here."""
+        for name, negation in detect_negations(document).items():
+            existing = fields.get(name)
+            if existing is not None and existing.status is FieldStatus.FOUND:
+                continue
+            fields[name] = negation
+
+    @staticmethod
+    def _merge_semantic(fields: dict[str, Any], semantic: dict[str, Any]) -> None:
+        """Add narrative readings without overruling the label path.
+
+        A label ("Probation Period: 90 days") is the most explicit thing a document can say, so a
+        FOUND label value always wins. Narrative readings fill fields the label path left empty, and
+        resolve a field the label path could only call ambiguous - recording in the notes that they did.
+        """
+        for name, narrative in semantic.items():
+            existing = fields.get(name)
+            if existing is None:
+                fields[name] = narrative
+                continue
+            if existing.status is FieldStatus.FOUND:
+                continue
+            if narrative.status is not FieldStatus.FOUND:
+                continue
+            note = ("read from a sentence rather than a label"
+                    if existing.status is FieldStatus.NOT_FOUND else
+                    "read from a sentence; the labeled readings disagreed and were not used")
+            fields[name] = narrative.model_copy(update={
+                "notes": list(dict.fromkeys([*narrative.notes, note])),
+            })
+
     def _match_label(self, item: LabeledValue) -> list[FieldSpec]:
         matched: list[FieldSpec] = []
         for key in item.keys:
@@ -262,8 +351,7 @@ class ContractExtractor:
 
     @staticmethod
     def _other_allowance(item: LabeledValue) -> tuple[AllowanceValue, SourceSpan] | None:
-        keys = item.keys
-        if not any(key.startswith(_OTHER_ALLOWANCE_PREFIXES) or key.endswith(_OTHER_ALLOWANCE_SUFFIX) for key in keys):
+        if not _looks_like_allowance_label(item.keys):
             return None
         source = item.unit.source(item.method, item.source_text)
         amounts, percentages = readers.find_money(item.value, require_currency=False)
@@ -271,6 +359,33 @@ class ContractExtractor:
         if len(readings) == 1:
             return AllowanceValue(name=item.label, **readings[0].value), source
         return AllowanceValue(name=item.label), source
+
+
+def _derive_probation_status(probation_period: ExtractedField) -> ExtractedField:
+    """A new, explicit field for "does probation apply at all", alongside (never instead of)
+    `probation_period`, which keeps carrying the duration itself unchanged.
+
+    FOUND here means "the document states a probation period" - the value is a fixed marker
+    ('applicable'), not the duration, so this field is never a second, competing source for the
+    length. NOT_APPLICABLE, AMBIGUOUS and NOT_FOUND are mirrored directly from `probation_period`,
+    so an explicit waiver ("not subject to a probationary period") is NOT_APPLICABLE here exactly as
+    it already is for `probation_period`, and a genuine conflict stays AMBIGUOUS rather than being
+    guessed one way or the other.
+    """
+    if probation_period.status is FieldStatus.NOT_APPLICABLE:
+        return ExtractedField(name="probation_status", status=FieldStatus.NOT_APPLICABLE,
+                              source_text=probation_period.source_text, page_number=probation_period.page_number,
+                              sources=probation_period.sources, notes=list(probation_period.notes))
+    if probation_period.status is FieldStatus.FOUND:
+        return ExtractedField(name="probation_status", status=FieldStatus.FOUND, value="applicable",
+                              raw_value=probation_period.raw_value, normalized_value="applicable",
+                              source_text=probation_period.source_text, page_number=probation_period.page_number,
+                              confidence=probation_period.confidence, sources=probation_period.sources,
+                              notes=["derived from the stated probation period"])
+    if probation_period.status is FieldStatus.AMBIGUOUS:
+        return ExtractedField(name="probation_status", status=FieldStatus.AMBIGUOUS,
+                              candidates=probation_period.candidates, notes=list(probation_period.notes))
+    return ExtractedField(name="probation_status", status=FieldStatus.NOT_FOUND)
 
 
 def _merge_money(values: list[MoneyValue]) -> tuple[MoneyValue | None, list[str]]:
